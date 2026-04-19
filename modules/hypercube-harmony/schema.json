@@ -1,0 +1,31 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "background-colors": {
+    "type": "color_list"
+  },
+
+  "tesseract-color": {
+    "type": "color"
+  },
+
+  "line-width": {
+    "type": "float",
+    "min": 0.1,
+    "max": 50
+  },
+
+  "MSAA": {
+    "type": "select",
+    "options": [0, 2, 4, 8, 16]
+  }
+}

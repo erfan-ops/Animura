@@ -1,0 +1,66 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "background-color": {
+    "type": "color"
+  },
+
+  "hexagon-size": {
+    "type": "float",
+    "min": 10,
+    "max": 200
+  },
+
+  "cube": {
+    "top-color": {
+      "type": "color"
+    },
+    "left-color": {
+      "type": "color"
+    },
+    "right-color": {
+      "type": "color"
+    }
+  },
+
+  "edges": {
+    "width": {
+      "type": "float",
+      "min": 0,
+      "max": 50
+    },
+    "color": {
+      "type": "color"
+    }
+  },
+
+  "mouse-barrier": {
+    "radius": {
+      "type": "float",
+      "min": 0,
+      "max": 1000
+    },
+    "reverse": {
+      "type": "bool"
+    },
+    "fade-area": {
+      "type": "float",
+      "min": 0,
+      "max": 1000
+    }
+  },
+
+  "MSAA": {
+    "type": "select",
+    "options": [0, 2, 4, 8, 16]
+  }
+}

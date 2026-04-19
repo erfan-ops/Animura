@@ -1,0 +1,49 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "colors": {
+    "type": "color_list"
+  },
+
+  "color-speed": {
+    "type": "float",
+    "min": 0,
+    "max": 10
+  },
+
+  "iteration-limit": {
+    "type": "int",
+    "min": 1,
+    "amx": 40
+  },
+
+  "distance-interval-factor": {
+    "type": "float",
+    "min": 0.01,
+    "max": 0.99
+  },
+
+  "line-width": {
+    "type": "float",
+    "min": 0.1,
+    "max": 50
+  },
+
+  "background-color": {
+    "type": "color"
+  },
+
+  "MSAA": {
+    "type": "select",
+    "options": [0, 2, 4, 8, 16]
+  }
+}

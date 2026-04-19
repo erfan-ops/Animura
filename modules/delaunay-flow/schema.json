@@ -1,0 +1,129 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "background-colors": {
+    "type": "color_list"
+  },
+
+  "stars": {
+    "draw": { "type": "bool" },
+
+    "segments": {
+      "type": "int",
+      "min": 3,
+      "max": 64
+    },
+
+    "radius": {
+      "type": "float",
+      "min": 0.1,
+      "max": 100
+    },
+
+    "count": {
+      "type": "int",
+      "min": 1,
+      "max": 5000
+    },
+
+    "min-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 500
+    },
+
+    "max-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 500
+    },
+
+    "color": {
+      "type": "color"
+    }
+  },
+
+  "edges": {
+    "draw": { "type": "bool" },
+
+    "min-width": {
+      "type": "float",
+      "min": 0,
+      "max": 20
+    },
+
+    "max-width": {
+      "type": "float",
+      "min": 0,
+      "max": 20
+    },
+
+    "min-distance": {
+      "type": "float",
+      "min": 0,
+      "max": 1000
+    },
+
+    "max-distance": {
+      "type": "float",
+      "min": 0,
+      "max": 1000
+    },
+
+    "color": {
+      "type": "color"
+    }
+  },
+
+  "interaction": {
+    "mouse-interaction": {
+      "type": "bool"
+    },
+
+    "distance-from-mouse": {
+      "type": "float",
+      "min": 1,
+      "max": 1000
+    }
+  },
+
+  "mouse-barrier": {
+    "draw": { "type": "bool" },
+
+    "radius": {
+      "type": "float",
+      "min": 1,
+      "max": 2000
+    },
+
+    "color": {
+      "type": "color"
+    },
+
+    "blur": {
+      "type": "float",
+      "min": 0,
+      "max": 200
+    }
+  },
+
+  "offset-bounds": {
+    "type": "float",
+    "min": 0,
+    "max": 5000
+  },
+
+  "MSAA": {
+    "type": "select",
+    "options": [0, 2, 4, 8, 16]
+  }
+}
