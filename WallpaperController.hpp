@@ -15,7 +15,7 @@
 
 class WallpaperController : public QObject {
     Q_OBJECT
-        QML_ELEMENT
+    QML_ELEMENT
 
 public:
     explicit WallpaperController(QObject* parent = nullptr);

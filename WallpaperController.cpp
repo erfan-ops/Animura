@@ -87,7 +87,7 @@ bool WallpaperController::ensureLibraryLoaded(const ModuleInfo& info, int module
     if (moduleIndex == m_currentModuleId && m_library.isLoaded())
         return true;
 
-    stopWallpaper(); // stop previous if running
+    stopWallpaper();
     m_library.unload();
 
     std::string err;

@@ -13,6 +13,7 @@
 #include <Windows.h>
 
 #include "WallpaperController.hpp"
+#include "ColorDialogHelper.hpp"
 
 namespace
 {
@@ -98,8 +99,10 @@ int main(int argc, char* argv[]) {
 
         QQmlApplicationEngine engine;
         WallpaperController wallpaperController;
+        ColorDialogHelper colorDialogHelper;
 
         engine.rootContext()->setContextProperty("backend", &wallpaperController);
+        engine.rootContext()->setContextProperty("ColorDialogHelper", &colorDialogHelper);
         engine.rootContext()->setContextProperty("WindowsAccent", wallpaperController.getWindowsAccentColor());
 
         engine.load(QUrl(QStringLiteral("qrc:/qt/qml/animura/main.qml")));

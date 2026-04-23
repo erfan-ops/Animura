@@ -61,7 +61,6 @@ Drawer {
             }
         }
 
-        // Scrollable content area
         ScrollView {
             id: scrollArea
             Layout.fillWidth: true
@@ -83,13 +82,9 @@ Drawer {
                     schemaObj: root.schemaData
                     settingsObj: root.settingsData
                 }
-
-                // bottom spacer so last item is fully visible
-                Item { height: 0 }
             }
         }
 
-        // BUTTONS SECTION
         Rectangle {
             Layout.fillWidth: true
             height: 128
@@ -99,7 +94,7 @@ Drawer {
                 anchors.fill: parent
                 anchors.margins: 16
 
-                // APPLY BUTTON
+                // Aplly button
                 Button {
                     text: "Apply"
                     Layout.fillWidth: true
@@ -107,7 +102,7 @@ Drawer {
                     onClicked: root.applyChanges()
                 }
 
-                // START BUTTON
+                // Start button
                 Button {
                     text: "Start"
                     Layout.fillWidth: true

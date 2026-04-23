@@ -159,6 +159,7 @@
     <QtMoc Include="WallpaperController.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="ColorDialogHelper.hpp" />
     <ClInclude Include="IWallpaperModule.hpp" />
     <ClInclude Include="JsonUtils.hpp" />
     <ClInclude Include="ModuleCatalog.hpp" />

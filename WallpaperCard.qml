@@ -28,7 +28,7 @@ Item {
 
         Image {
             anchors.fill: parent
-            anchors.margins: 1  // Keep inside border
+            anchors.margins: 1
             source: moduleData.previewPath || ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
@@ -36,16 +36,16 @@ Item {
         }
         
 
-        // Text overlay at bottom with pill background
+        // Text overlay
         Rectangle {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.margins: 12  // Padding from edges
+            anchors.margins: 12
             height: nameLabel.implicitHeight + 12
             
-            color: Qt.rgba(0, 0, 0, 0.65)  // Low opacity black
-            radius: height / 2  // Maximum rounded corners (pill shape)
+            color: Qt.rgba(0, 0, 0, 0.65)
+            radius: height / 2 
 
             Label {
                 id: nameLabel

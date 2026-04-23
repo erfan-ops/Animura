@@ -75,7 +75,6 @@ ColumnLayout {
                     }
                 }
 
-                //return rootGroup.settingsObj ? rootGroup.settingsObj[key] : undefined;
                 return (current && current[key] !== undefined) ? current[key] : undefined;
             }
             
@@ -178,17 +177,10 @@ ColumnLayout {
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: colorDialog.open()
-                    }
-
-                    ColorDialog {
-                        id: colorDialog
-                        selectedColor: swatch.color
-
-                        onAccepted: {
-                            let c = colorDialog.selectedColor
-                            swatch.color = c
-                            let arr = [c.r, c.g, c.b, c.a]
+                        onClicked: {
+                            var newColor = ColorDialogHelper.openColorDialog(swatch.color)
+                            swatch.color = newColor
+                            let arr = [newColor.r, newColor.g, newColor.b, newColor.a]
                             rootGroup.updateSettings(key, arr)
                         }
                     }
@@ -212,19 +204,12 @@ ColumnLayout {
                     }
 
                     function addColor() {
-                        addDialog.open()
-                    }
-
-                    ColorDialog {
-                        id: addDialog
-
-                        onAccepted: {
-                            const c = selectedColor
-                            colors.push([c.r, c.g, c.b, c.a])
-                            colors = colors.slice()
-                            selectedIndex = colors.length - 1
-                            save()
-                        }
+                        var c = ColorDialogHelper.openColorDialog("white")
+                        if (!c) return
+                        colors.push([c.r, c.g, c.b, c.a])
+                        colors = colors.slice()
+                        selectedIndex = colors.length - 1
+                        save()
                     }
 
                     function removeColor() {
@@ -362,7 +347,9 @@ ColumnLayout {
                                         onDoubleClicked: {
                                             if (!isAddButton && mouse.button === Qt.LeftButton) {
                                                 root.selectedIndex = index
-                                                colorDialog.open()
+                                                var qc = ColorDialogHelper.openColorDialog(swatch.color)
+                                                if (qc)
+                                                    root.updateColor(index, qc)
                                             }
                                         }
                                     }
@@ -388,17 +375,6 @@ ColumnLayout {
                                             root.colors = root.colors.slice()
                                             root.selectedIndex = to
                                             root.save()
-                                        }
-                                    }
-
-                                    ColorDialog {
-                                        id: colorDialog
-                                        title: "Select a Color"
-
-                                        selectedColor: rootGroup.toColor(root.colors[index])
-
-                                        onAccepted: {
-                                            root.updateColor(index, selectedColor)
                                         }
                                     }
                                 }
@@ -435,7 +411,6 @@ ColumnLayout {
                             }
                         }
             
-                        // Explicit bindings ensure nested groups update when parent data changes
                         Binding { 
                             target: groupLoader.item 
                             property: "path" 
