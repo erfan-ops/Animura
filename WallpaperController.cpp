@@ -9,8 +9,6 @@
 #include <QSaveFile>
 #include <QDebug>
 
-#include <Windows.h>
-#include <dwmapi.h>
 
 #define WALLPAPER_HOST_STATIC
 #include <wallpaper-host/desktop_utils.hpp>
@@ -87,7 +85,7 @@ bool WallpaperController::ensureLibraryLoaded(const ModuleInfo& info, int module
     if (moduleIndex == m_currentModuleId && m_library.isLoaded())
         return true;
 
-    stopWallpaper();
+    if (m_running) stopWallpaper();
     m_library.unload();
 
     std::string err;
@@ -166,7 +164,6 @@ void WallpaperController::stopWallpaper() {
 
     m_running = false;
 
-    wallpaper::desktop::DetachWindowFromDesktop(m_module->hwnd());
     m_module.reset();
 
     restoreWallpaper();
@@ -215,18 +212,4 @@ void WallpaperController::applySettings(int moduleIndex, QJsonObject settings) {
 
     if (!file.commit())
         qWarning() << "Failed to save settings:" << file.errorString();
-}
-
-QColor WallpaperController::getWindowsAccentColor() {
-    DWORD color = 0;
-    BOOL opaque = 0;
-
-    if (SUCCEEDED(DwmGetColorizationColor(&color, &opaque)))
-    {
-        int r = (color >> 16) & 0xFF;
-        int g = (color >> 8) & 0xFF;
-        int b = (color & 0xFF);
-        return QColor(r, g, b);
-    }
-    return QColor("#0078D7");
 }

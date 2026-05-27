@@ -11,78 +11,93 @@
 #include <QIcon>
 
 #include <Windows.h>
+#include <dwmapi.h>
 
 #include "WallpaperController.hpp"
 #include "ColorDialogHelper.hpp"
 
-namespace
-{
-    constexpr const char* kAppName = "Animura";
-    constexpr const char* kServerName = "AnimuraInstance";
-    constexpr const char* kIconPath = ":/icons/icon.ico";
-    constexpr int         kLockTimeoutMs = 100;
+namespace {
 
-    bool notifyRunningInstance() {
-        QLocalSocket socket;
-        socket.connectToServer(kServerName);
+constexpr const char* kAppName = "Animura";
+constexpr const char* kServerName = "AnimuraInstance";
+constexpr const char* kIconPath = ":/icons/icon.ico";
+constexpr int         kLockTimeoutMs = 100;
 
-        if (!socket.waitForConnected(kLockTimeoutMs))
-            return false;
+bool notifyRunningInstance() {
+    QLocalSocket socket;
+    socket.connectToServer(kServerName);
 
-        socket.write("show");
-        socket.flush();
-        socket.waitForBytesWritten();
-        return true;
-    }
+    if (!socket.waitForConnected(kLockTimeoutMs))
+        return false;
 
-    void setupSingleInstanceServer(QLocalServer& server, QObject* rootWindow) {
-        server.listen(kServerName);
+    socket.write("show");
+    socket.flush();
+    socket.waitForBytesWritten();
+    return true;
+}
 
-        QObject::connect(&server, &QLocalServer::newConnection, [&server, rootWindow]() {
-            std::unique_ptr<QLocalSocket> client(server.nextPendingConnection());
-            if (!client) return;
+void setupSingleInstanceServer(QLocalServer& server, QObject* rootWindow) {
+    server.listen(kServerName);
 
-            client->waitForReadyRead();
-            const QByteArray msg = client->readAll();
+    QObject::connect(&server, &QLocalServer::newConnection, [&server, rootWindow]() {
+        std::unique_ptr<QLocalSocket> client(server.nextPendingConnection());
+        if (!client) return;
 
-            if (msg == "show" && rootWindow)
+        client->waitForReadyRead();
+        const QByteArray msg = client->readAll();
+
+        if (msg == "show" && rootWindow)
+            QMetaObject::invokeMethod(rootWindow, "showMainWindow");
+
+        client->disconnectFromServer();
+        });
+}
+
+void setupTrayIcon(QApplication& app, QObject* rootWindow) {
+    auto* trayIcon = new QSystemTrayIcon(QIcon(kIconPath), &app);
+    auto* trayMenu = new QMenu();
+
+    QAction* openAction = trayMenu->addAction("Open Animura");
+    QAction* quitAction = trayMenu->addAction("Quit");
+
+    QObject::connect(openAction, &QAction::triggered, [rootWindow]() {
+        if (rootWindow)
+            QMetaObject::invokeMethod(rootWindow, "showMainWindow");
+        });
+
+    QObject::connect(quitAction, &QAction::triggered, &app, &QCoreApplication::quit);
+
+    trayIcon->setToolTip("Animura Wallpaper Engine");
+    trayIcon->setContextMenu(trayMenu);
+    trayIcon->show();
+
+    QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+        [rootWindow](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::Trigger && rootWindow)
                 QMetaObject::invokeMethod(rootWindow, "showMainWindow");
+        });
+}
 
-            client->disconnectFromServer();
-            });
+QColor getWindowsAccentColor() {
+    DWORD color = 0;
+    BOOL opaque = 0;
+
+    if (SUCCEEDED(DwmGetColorizationColor(&color, &opaque)))
+    {
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = (color & 0xFF);
+        return QColor(r, g, b);
     }
+    return QColor("#0078D7");
+}
 
-    void setupTrayIcon(QApplication& app, QObject* rootWindow) {
-        auto* trayIcon = new QSystemTrayIcon(QIcon(kIconPath), &app);
-        auto* trayMenu = new QMenu();
-
-        QAction* openAction = trayMenu->addAction("Open Animura");
-        QAction* quitAction = trayMenu->addAction("Quit");
-
-        QObject::connect(openAction, &QAction::triggered, [rootWindow]() {
-            if (rootWindow)
-                QMetaObject::invokeMethod(rootWindow, "showMainWindow");
-            });
-
-        QObject::connect(quitAction, &QAction::triggered, &app, &QCoreApplication::quit);
-
-        trayIcon->setToolTip("Animura Wallpaper Engine");
-        trayIcon->setContextMenu(trayMenu);
-        trayIcon->show();
-
-        QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-            [rootWindow](QSystemTrayIcon::ActivationReason reason) {
-                if (reason == QSystemTrayIcon::Trigger && rootWindow)
-                    QMetaObject::invokeMethod(rootWindow, "showMainWindow");
-            });
-    }
 } // namespace
 
 int main(int argc, char* argv[]) {
 #if defined(Q_OS_WIN) && QT_VERSION_CHECK(5, 6, 0) <= QT_VERSION && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
-
     try {
         QApplication app(argc, argv);
 
@@ -103,7 +118,7 @@ int main(int argc, char* argv[]) {
 
         engine.rootContext()->setContextProperty("backend", &wallpaperController);
         engine.rootContext()->setContextProperty("ColorDialogHelper", &colorDialogHelper);
-        engine.rootContext()->setContextProperty("WindowsAccent", wallpaperController.getWindowsAccentColor());
+        engine.rootContext()->setContextProperty("WindowsAccent", getWindowsAccentColor());
 
         engine.load(QUrl(QStringLiteral("qrc:/qt/qml/animura/main.qml")));
         if (engine.rootObjects().isEmpty())

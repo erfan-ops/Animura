@@ -26,7 +26,6 @@ public:
     Q_INVOKABLE void stopWallpaper();
     Q_INVOKABLE QJsonObject loadSettingsUI(int moduleIndex);
     Q_INVOKABLE void applySettings(int moduleIndex, QJsonObject settings);
-    QColor getWindowsAccentColor();
 
 private:
     ModuleCatalog m_catalog;
