@@ -1,0 +1,88 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "background-colors": {
+    "type": "color_list"
+  },
+
+  "fireflies": {
+    "max-radius": {
+      "type": "float",
+      "min": 1,
+      "max": 100
+    },
+    "segments": {
+      "type": "int",
+      "min": 3,
+      "max": 30
+    },
+    "colors": {
+      "type": "color_list"
+    },
+    "min-alpha": {
+      "type": "float",
+      "min": 0,
+      "max": 1
+    },
+    "max-alpha": {
+      "type": "float",
+      "min": 0,
+      "max": 1
+    },
+    "increase-brightness-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 5
+    },
+    "decrease-brightness-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 5
+    },
+    "count": {
+      "type": "int",
+      "min": 1,
+      "max": 1000
+    },
+    "min-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 100
+    },
+    "max-speed": {
+      "type": "float",
+      "min": 0,
+      "max": 100
+    }
+  },
+
+  "mouse-radius": {
+    "type": "float",
+    "min": 50,
+    "max": 500
+  },
+  "mouse-gravity": {
+    "type": "float",
+    "min": 10000,
+    "max": 500000
+  },
+  "min-distance": {
+    "type": "float",
+    "min": 1,
+    "max": 50
+  },
+
+  "MSAA": {
+    "type": "select",
+    "options": [0, 2, 4, 8, 16]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "fps": {
+    "type": "float",
+    "min": 1,
+    "max": 240,
+    "step": 1
+  },
+
+  "vsync": {
+    "type": "bool"
+  },
+
+  "blackhole": {
+    "gravatational-lensing": {
+      "type": "bool"
+    },
+
+    "render-black-hole": {
+      "type": "bool"
+    }
+  },
+
+  "camera": {
+    "mouse-control": {
+      "type": "bool"
+    },
+
+    "camera-roll": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 1
+    },
+
+    "front-view": {
+      "type": "bool"
+    },
+
+    "top-view": {
+      "type": "bool"
+    },
+
+    "initial-rotation-x": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 1
+    },
+
+    "initial-rotation-y": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 1
+    },
+
+    "initial-rotation-z": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 1
+    },
+
+    "rotation-speed-x": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 0.1
+    },
+
+    "rotation-speed-y": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 0.1
+    },
+
+    "rotation-speed-z": {
+      "type": "float",
+      "min": -180,
+      "max": 180,
+      "step": 0.1
+    }
+  },
+
+  "adisk": {
+    "enabled": {
+      "type": "bool"
+    },
+
+    "particle": {
+      "type": "bool"
+    },
+
+    "density-v": {
+      "type": "float",
+      "min": 0,
+      "max": 10,
+      "step": 0.1
+    },
+
+    "density-h": {
+      "type": "float",
+      "min": 0,
+      "max": 10,
+      "step": 0.1
+    },
+
+    "height": {
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+
+    "lit": {
+      "type": "float",
+      "min": 0,
+      "max": 4,
+      "step": 0.01
+    },
+
+    "noise-lod": {
+      "type": "float",
+      "min": 1,
+      "max": 12,
+      "step": 0.1
+    },
+
+    "noise-scale": {
+      "type": "float",
+      "min": 0,
+      "max": 10,
+      "step": 0.1
+    },
+
+    "speed": {
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    }
+  },
+
+  "bloom": {
+    "iterations": {
+      "type": "int",
+      "min": 1,
+      "max": 8,
+      "step": 1
+    },
+
+    "strength": {
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    }
+  },
+
+  "tonemapping": {
+    "enabled": {
+      "type": "bool"
+    },
+
+    "gamma": {
+      "type": "float",
+      "min": 1,
+      "max": 4,
+      "step": 0.1
+    }
+  }
+}

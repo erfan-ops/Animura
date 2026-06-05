@@ -18,6 +18,12 @@
     "type": "color"
   },
 
+  "tesseract-size": {
+    "type": "float",
+    "min": 1,
+    "max": 1000
+  },
+
   "line-width": {
     "type": "float",
     "min": 0.1,

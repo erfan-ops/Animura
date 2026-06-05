@@ -1,0 +1,8 @@
+{
+  "name": "Fire Flies",
+  "version": "1.0",
+  "entry": "module.dll",
+  "schema": "schema.json",
+  "settings": "settings.json",
+  "preview": "preview.jpg"
+}

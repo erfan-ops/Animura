@@ -1,15 +1,1 @@
-{
-  "fps": 60,
-  "vsync": false,
-
-  "background-colors": [
-    [0, 0, 0, 1],
-    [0.090196, 0.090196, 0.12549, 1],
-    [0.211764, 0.2, 0.329411, 1]
-  ],
-
-  "tesseract-color": [0.79, 0.7, 0.99, 1],
-  "line-width": 4,
-
-  "MSAA": 4
-}
+{"MSAA":4,"background-colors":[[0,0,0,1],[0.090196,0.090196,0.12549,1],[0.211764,0.2,0.329411,1]],"fps":240,"line-width":4,"tesseract-color":[0.79,0.7,0.99,1],"tesseract-size":311.6,"vsync":true}
