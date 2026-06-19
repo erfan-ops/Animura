@@ -126,6 +126,7 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
             // Blocking call: module runs until stop() is called
             m_module->run();
 
+            m_module.reset();
         }
         catch (const std::exception& e) {
             QString errorMsg = QString::fromStdString(e.what());
@@ -176,7 +177,6 @@ void WallpaperController::stopWallpaper() {
 
     // 3. Reset state
     m_running = false;
-    m_module.reset();
 
     // 4. Restore the Windows Desktop wallpaper
     restoreWallpaper();

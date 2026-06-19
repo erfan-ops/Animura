@@ -18,16 +18,6 @@
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.8.2/msvc2022_64"
       }
-    },
-    {
-      "name": "debug",
-      "displayName": "Debug (Visual Studio 2022 x64)",
-      "inherits": "vs2022-x64"
-    },
-    {
-      "name": "release",
-      "displayName": "Release (Visual Studio 2022 x64)",
-      "inherits": "vs2022-x64"
     }
   ],
   "buildPresets": [
