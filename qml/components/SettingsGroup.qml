@@ -1,36 +1,32 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Controls.Material
 import QtQuick.Dialogs
-//import Qt.labs.platform
-
 
 ColumnLayout {
     id: rootGroup
+
     property var schemaObj: ({})
     property var settingsObj: ({})
     property var path: []
     property bool hasChanged: false
     signal settingsChanged()
 
-    spacing: 16
+    spacing: 18
 
+    // ── Navigate into nested settings by path ──
     function updateSettings(key, value) {
         hasChanged = true;
         settingsChanged();
-        
-        let current = rootGroup.settingsObj;
 
-        // 1. Navigate through the existing path array (the parent groups)
+        let current = rootGroup.settingsObj;
         for (let p of rootGroup.path) {
             if (current && current[p] !== undefined) {
                 current = current[p];
             } else {
-                return undefined; // Path broken
+                return undefined;
             }
         }
-        
         current[key] = value;
     }
 
@@ -38,63 +34,76 @@ ColumnLayout {
         return settingsObj
     }
 
-    // Helper: Converts RGBA array [R, G, B, A] from 0-1 to a QML Color
+    // ── Convert RGBA [0–1] array to QML color ──
     function toColor(arr) {
         if (!arr || arr.length < 3) {
-            return Qt.rgba(0.0, 0.0, 0.0, 0.0);
+            return Qt.rgba(0.5, 0.5, 0.5, 1.0);
         }
         let a = arr.length > 3 ? arr[3] : 1.0;
         return Qt.rgba(arr[0], arr[1], arr[2], a);
     }
 
-    // Helper: Formats "max-line-distance" into "Max Line Distance"
+    // ── "max-line-distance" → "Max Line Distance" ──
     function formatName(str) {
         if (!str) return "";
         return str.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
 
+    // ── Design tokens (inline, matches all other components) ──
+    readonly property color cAccent:      "#e04090"
+    readonly property color cTextPrimary: "#ede4f5"
+    readonly property color cTextSec:     "#b8a9cc"
+    readonly property color cBgSurface:   "#1a1035"
+    readonly property color cBgElevated:  "#221845"
+    readonly property color cShadow:      "#060210"
+
+    // ── Schema Key Iterator ──
     Repeater {
-        // Iterate over the keys of the current schema level
         model: rootGroup.schemaObj ? Object.keys(rootGroup.schemaObj) : []
 
         delegate: ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
+            spacing: 6
 
             property string key: modelData
             property var fieldSchema: rootGroup.schemaObj[key]
+            property string fieldType: fieldSchema.type !== undefined ? fieldSchema.type : "group"
+
             function getValue() {
                 let current = rootGroup.settingsObj;
-
-                // 1. Navigate through the existing path array (the parent groups)
                 for (let p of rootGroup.path) {
                     if (current && current[p] !== undefined) {
                         current = current[p];
                     } else {
-                        return undefined; // Path broken
+                        return undefined;
                     }
                 }
-
                 return (current && current[key] !== undefined) ? current[key] : undefined;
             }
-            
-            // If there's no "type" defined, treat it as a nested dictionary/group
-            property string fieldType: fieldSchema.type !== undefined ? fieldSchema.type : "group"
 
-            // Field Label
+            // ── Field Label ──
             Label {
                 text: rootGroup.formatName(key)
-                font.pixelSize: fieldType === "group" ? 16 : 14
-                font.bold: fieldType === "group"
-                color: fieldType === "group" ? Material.accent : Material.foreground
-                Layout.topMargin: fieldType === "group" ? 12 : 0
+                font.pixelSize: fieldType === "group" ? 16 : 13
+                font.weight: fieldType === "group" ? Font.DemiBold : Font.Medium
+                color: fieldType === "group" ? rootGroup.cAccent : rootGroup.cTextPrimary
+                Layout.topMargin: fieldType === "group" ? 16 : 0
             }
 
-            // Dynamic Control Loader
+            // ── Group separator line ──
+            Rectangle {
+                visible: fieldType === "group"
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Qt.rgba(0.88, 0.25, 0.56, 0.15)
+                Layout.topMargin: -2
+            }
+
+            // ── Control Loader ──
             Loader {
                 Layout.fillWidth: true
                 sourceComponent: {
-                    switch(fieldType) {
+                    switch (fieldType) {
                         case "int":
                         case "float": return sliderComp;
                         case "bool": return switchComp;
@@ -107,76 +116,225 @@ ColumnLayout {
                 }
             }
 
-            /* --- UI Component Definitions --- */
-
+            /* ═══════════════════════════════════════════
+               Slider — Neumorphic track + pink handle
+               ═══════════════════════════════════════════ */
             Component {
                 id: sliderComp
                 RowLayout {
-                    spacing: 12
+                    spacing: 14
                     Slider {
                         id: slider
                         Layout.fillWidth: true
                         from: fieldSchema.min !== undefined ? fieldSchema.min : 0
                         to: fieldSchema.max !== undefined ? fieldSchema.max : 100
-                        stepSize: fieldSchema.step !== undefined ? fieldSchema.step : (fieldType === "int" ? 1 : 0.01)
+                        stepSize: fieldSchema.step !== undefined ? fieldSchema.step
+                            : (fieldType === "int" ? 1 : 0.01)
                         value: getValue() !== undefined ? getValue() : from
-                        onValueChanged: {
-                            rootGroup.updateSettings(key, value)
+                        onValueChanged: rootGroup.updateSettings(key, value)
+
+                        background: Rectangle {
+                            x: slider.leftPadding
+                            y: slider.topPadding + slider.availableHeight / 2 - 3
+                            width: slider.availableWidth
+                            height: 6
+                            radius: 3
+                            color: "#1a1035"
+                            border.color: Qt.rgba(1,1,1,0.06)
+
+                            Rectangle {
+                                width: slider.visualPosition * parent.width
+                                height: 6
+                                radius: 3
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: "#c03078" }
+                                    GradientStop { position: 1.0; color: rootGroup.cAccent }
+                                }
+                            }
+                        }
+
+                        handle: Rectangle {
+                            x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
+                            y: slider.topPadding + slider.availableHeight / 2 - height / 2
+                            width: 20
+                            height: 20
+                            radius: 10
+                            color: "#ede4f5"
+                            border.color: rootGroup.cAccent
+                            border.width: 2
                         }
                     }
                     Label {
                         text: Number(slider.value).toFixed(fieldType === "int" ? 0 : 2)
-                        Layout.minimumWidth: 40
+                        Layout.minimumWidth: 42
                         horizontalAlignment: Text.AlignRight
-                        color: Material.foreground
-                        opacity: 0.8
+                        color: rootGroup.cTextSec
+                        font.pixelSize: 13
                     }
                 }
             }
 
+            /* ═══════════════════════════════════════════
+               Switch — Pink accent toggle
+               ═══════════════════════════════════════════ */
             Component {
                 id: switchComp
                 Switch {
                     id: switchElement
                     checked: getValue() === true
-                    onToggled: {
-                        rootGroup.updateSettings(key, checked)
+                    onToggled: rootGroup.updateSettings(key, checked)
+
+                    indicator: Rectangle {
+                        implicitWidth: 44
+                        implicitHeight: 26
+                        radius: 13
+                        color: switchElement.checked ? rootGroup.cAccent : "#1a1035"
+                        border {
+                            width: 1
+                            color: switchElement.checked
+                                ? Qt.rgba(1,0.4,0.7,0.3)
+                                : Qt.rgba(1,1,1,0.08)
+                        }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Rectangle {
+                            x: switchElement.checked ? parent.width - width - 3 : 3
+                            y: (parent.height - height) / 2
+                            width: 20
+                            height: 20
+                            radius: 10
+                            color: switchElement.checked ? "#ede4f5" : "#564a6e"
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
                     }
                 }
             }
 
+            /* ═══════════════════════════════════════════
+               Select — Styled ComboBox
+               ═══════════════════════════════════════════ */
             Component {
                 id: selectComp
                 ComboBox {
                     id: selectElement
                     Layout.fillWidth: true
+                    Layout.preferredHeight: 38
+
                     model: fieldSchema.options || []
                     currentIndex: fieldSchema.options
                         ? fieldSchema.options.indexOf(getValue())
                         : -1
-                    onCurrentIndexChanged: {
-                        rootGroup.updateSettings(key, fieldSchema.options[currentIndex])
+                    onCurrentIndexChanged: rootGroup.updateSettings(key, fieldSchema.options[currentIndex])
+
+                    // Text display
+                    contentItem: Text {
+                        text: selectElement.displayText
+                        font.pixelSize: 13
+                        color: "#ede4f5"
+                        verticalAlignment: Text.AlignVCenter
+                        leftPadding: 14
+                    }
+
+                    background: Rectangle {
+                        radius: 10
+                        color: selectElement.hovered ? "#221845" : "#1a1035"
+                        border {
+                            width: 1
+                            color: selectElement.hovered
+                                ? Qt.rgba(0.88, 0.25, 0.56, 0.3)
+                                : Qt.rgba(1,1,1,0.06)
+                        }
+                        Behavior on color        { ColorAnimation { duration: 120 } }
+                        Behavior on border.color { ColorAnimation { duration: 120 } }
+                    }
+
+                    // Dropdown styling
+                    delegate: ItemDelegate {
+                        width: selectElement.width
+                        implicitHeight: 34
+
+                        contentItem: Text {
+                            text: modelData
+                            font.pixelSize: 13
+                            color: highlighted ? rootGroup.cAccent : "#b8a9cc"
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 14
+                        }
+                        background: Rectangle {
+                            radius: 6
+                            color: highlighted ? "#221845" : "transparent"
+                            Behavior on color { ColorAnimation { duration: 100 } }
+                        }
+                    }
+
+                    popup: Popup {
+                        y: selectElement.height + 4
+                        width: selectElement.width
+                        implicitHeight: contentItem.implicitHeight
+                        padding: 4
+
+                        contentItem: ListView {
+                            clip: true
+                            implicitHeight: contentHeight
+                            model: selectElement.popup.visible ? selectElement.delegateModel : null
+                            currentIndex: selectElement.highlightedIndex
+                        }
+
+                        background: Rectangle {
+                            radius: 12
+                            color: "#1a1035"
+                            border {
+                                width: 1
+                                color: Qt.rgba(0.88, 0.25, 0.56, 0.2)
+                            }
+                        }
+                    }
+
+                    // Down arrow indicator
+                    indicator: Text {
+                        x: selectElement.width - width - 14
+                        y: (selectElement.height - height) / 2
+                        text: "▾"
+                        font.pixelSize: 10
+                        color: rootGroup.cAccent
                     }
                 }
             }
 
+            /* ═══════════════════════════════════════════
+               Color — Neumorphic swatch
+               ═══════════════════════════════════════════ */
             Component {
                 id: colorComp
-
                 Rectangle {
                     id: swatch
                     width: 48
-                    height: 32
-                    radius: 4
-
+                    height: 36
+                    radius: 10
                     color: rootGroup.toColor(getValue())
 
-                    border.color: Qt.rgba(1, 1, 1, 0.2)
-                    border.width: 1
+                    border {
+                        width: 1.5
+                        color: Qt.rgba(1,1,1,0.1)
+                    }
+
+                    // Neumorphic depth
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: "transparent"
+                        border {
+                            width: 1
+                            color: Qt.rgba(0,0,0,0.2)
+                        }
+                    }
 
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
                         onClicked: {
                             var newColor = ColorDialogHelper.openColorDialog(swatch.color)
                             swatch.color = newColor
@@ -187,13 +345,15 @@ ColumnLayout {
                 }
             }
 
+            /* ═══════════════════════════════════════════
+               Color List — Grid with add/remove/reorder
+               ═══════════════════════════════════════════ */
             Component {
                 id: colorListComp
-
                 Item {
-                    id: root
+                    id: colorListRoot
                     Layout.fillWidth: true
-                    height: 200
+                    height: 210
 
                     property int selectedIndex: -1
                     property var colors: getValue() || []
@@ -214,54 +374,93 @@ ColumnLayout {
 
                     function removeColor() {
                         if (selectedIndex < 0) return
-                        colors.splice(selectedIndex,1)
-                        selectedIndex = Math.min(selectedIndex, colors.length-1)
+                        colors.splice(selectedIndex, 1)
+                        selectedIndex = Math.min(selectedIndex, colors.length - 1)
                         colors = colors.slice()
                         save()
                     }
 
                     function updateColor(index, c) {
-                        colors[index] = [c.r,c.g,c.b,c.a]
+                        colors[index] = [c.r, c.g, c.b, c.a]
                         colors = colors.slice()
                         save()
                     }
 
                     ColumnLayout {
                         anchors.fill: parent
-                        spacing: 6
+                        spacing: 8
 
+                        // Add / Remove toolbar
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 6
+                            spacing: 8
 
-                            Button {
-                                text: "+"
-                                onClicked: root.addColor()
+                            // Add button
+                            Rectangle {
+                                width: 32; height: 28; radius: 8
+                                color: colorListRootMouse.containsMouse ? rootGroup.cAccent : "#1a1035"
+                                border { width: 1; color: Qt.rgba(1,1,1,0.06) }
+
+                                Text {
+                                    anchors.centerIn: parent; text: "+"
+                                    font.pixelSize: 16; color: "#ede4f5"
+                                }
+
+                                MouseArea {
+                                    id: colorListRootMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: colorListRoot.addColor()
+                                }
+
+                                Behavior on color { ColorAnimation { duration: 120 } }
                             }
 
-                            Button {
-                                text: "-"
-                                enabled: root.selectedIndex >= 0
-                                onClicked: root.removeColor()
+                            // Remove button
+                            Rectangle {
+                                width: 32; height: 28; radius: 8
+                                color: colorListRmMouse.containsMouse ? rootGroup.cAccent : "#1a1035"
+                                border { width: 1; color: Qt.rgba(1,1,1,0.06) }
+                                opacity: colorListRoot.selectedIndex >= 0 ? 1 : 0.4
+
+                                Text {
+                                    anchors.centerIn: parent; text: "−"
+                                    font.pixelSize: 18; color: "#ede4f5"
+                                }
+
+                                MouseArea {
+                                    id: colorListRmMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: colorListRoot.selectedIndex >= 0
+                                    onClicked: colorListRoot.removeColor()
+                                }
+
+                                Behavior on color { ColorAnimation { duration: 120 } }
                             }
+
+                            Item { Layout.fillWidth: true }
                         }
 
+                        // Color grid
                         ScrollView {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
 
                             GridView {
-                                id: grid
+                                id: colorGrid
                                 anchors.fill: parent
 
                                 cellWidth: 48
                                 cellHeight: 48
 
-                                model: root.colors.length + 1
+                                model: colorListRoot.colors.length + 1
 
                                 move: Transition {
-                                    NumberAnimation { properties: "x,y"; duration: 150; easing.type: Easing.OutQuad }
+                                    NumberAnimation { properties: "x,y"; duration: 160; easing.type: Easing.OutQuad }
                                 }
 
                                 add: Transition {
@@ -277,7 +476,7 @@ ColumnLayout {
                                     width: 40
                                     height: 40
 
-                                    property bool isAddButton: index === root.colors.length
+                                    property bool isAddButton: index === colorListRoot.colors.length
                                     property bool hovered: false
 
                                     Drag.active: dragArea.drag.active
@@ -286,23 +485,24 @@ ColumnLayout {
                                     Drag.hotSpot.y: height / 2
 
                                     Rectangle {
-                                        id: swatch
+                                        id: colorSwatch
                                         anchors.fill: parent
-                                        radius: 4
+                                        radius: 10
 
-                                        color: isAddButton ? "transparent"
-                                                           : rootGroup.toColor(root.colors[index])
+                                        color: isAddButton ? "#1a1035"
+                                            : rootGroup.toColor(colorListRoot.colors[index])
 
-                                        border.width: isAddButton ? 1 :
-                                                      (index === root.selectedIndex ? 2 : 1)
+                                        border {
+                                            width: index === colorListRoot.selectedIndex ? 2 : 1
+                                            color: index === colorListRoot.selectedIndex
+                                                ? rootGroup.cAccent
+                                                : isAddButton
+                                                    ? Qt.rgba(1,1,1,0.06)
+                                                    : Qt.rgba(1,1,1,0.1)
+                                        }
 
-                                        border.color: isAddButton ? "#888"
-                                                      : (index === root.selectedIndex
-                                                         ? "#4da3ff"
-                                                         : Qt.rgba(1,1,1,0.2))
-
-                                        opacity: hovered ? 1 : 0.9
-                                        scale: hovered ? 1.05 : 1
+                                        opacity: hovered ? 1 : 0.85
+                                        scale: hovered ? 1.08 : 1
 
                                         Behavior on scale { NumberAnimation { duration: 100 } }
                                         Behavior on opacity { NumberAnimation { duration: 100 } }
@@ -312,7 +512,7 @@ ColumnLayout {
                                             visible: isAddButton
                                             text: "+"
                                             font.pixelSize: 16
-                                            color: "#aaa"
+                                            color: "#564a6e"
                                         }
                                     }
 
@@ -321,7 +521,6 @@ ColumnLayout {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         drag.target: !isAddButton ? delegateRoot : null
-
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         cursorShape: Qt.PointingHandCursor
 
@@ -329,52 +528,41 @@ ColumnLayout {
                                         onExited: hovered = false
 
                                         onClicked: function(mouse) {
-
                                             if (isAddButton) {
-                                                root.addColor()
+                                                colorListRoot.addColor()
                                                 return
                                             }
-
                                             if (mouse.button === Qt.LeftButton)
-                                                root.selectedIndex = index
-
-                                            if (mouse.button === Qt.RightButton && root.colors.length > 1) {
-                                                root.selectedIndex = index
-                                                root.removeColor()
+                                                colorListRoot.selectedIndex = index
+                                            if (mouse.button === Qt.RightButton && colorListRoot.colors.length > 1) {
+                                                colorListRoot.selectedIndex = index
+                                                colorListRoot.removeColor()
                                             }
                                         }
 
                                         onDoubleClicked: {
                                             if (!isAddButton && mouse.button === Qt.LeftButton) {
-                                                root.selectedIndex = index
-                                                var qc = ColorDialogHelper.openColorDialog(swatch.color)
+                                                colorListRoot.selectedIndex = index
+                                                var qc = ColorDialogHelper.openColorDialog(colorSwatch.color)
                                                 if (qc)
-                                                    root.updateColor(index, qc)
+                                                    colorListRoot.updateColor(index, qc)
                                             }
                                         }
                                     }
 
                                     DropArea {
                                         anchors.fill: parent
-
                                         onEntered: function(drag) {
-
-                                            if (isAddButton)
-                                                return
-
+                                            if (isAddButton) return
                                             let from = drag.source.index
                                             let to = index
-
-                                            if (from === to)
-                                                return
-
-                                            let item = root.colors[from]
-                                            root.colors.splice(from,1)
-                                            root.colors.splice(to,0,item)
-
-                                            root.colors = root.colors.slice()
-                                            root.selectedIndex = to
-                                            root.save()
+                                            if (from === to) return
+                                            let item = colorListRoot.colors[from]
+                                            colorListRoot.colors.splice(from, 1)
+                                            colorListRoot.colors.splice(to, 0, item)
+                                            colorListRoot.colors = colorListRoot.colors.slice()
+                                            colorListRoot.selectedIndex = to
+                                            colorListRoot.save()
                                         }
                                     }
                                 }
@@ -384,23 +572,29 @@ ColumnLayout {
                 }
             }
 
-
+            /* ═══════════════════════════════════════════
+               Group — Recursive nested SettingsGroup
+               ═══════════════════════════════════════════ */
             Component {
                 id: groupComp
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 12
+                    spacing: 14
+
+                    // Left accent bar for nesting depth
                     Rectangle {
                         Layout.fillHeight: true
-                        width: 2
-                        color: Qt.rgba(1, 1, 1, 0.1)
+                        Layout.preferredWidth: 2
+                        Layout.minimumHeight: 20
+                        color: rootGroup.cAccent
+                        opacity: 0.4
                         radius: 1
                     }
+
                     Loader {
                         id: groupLoader
                         Layout.fillWidth: true
                         source: "SettingsGroup.qml"
-
 
                         onLoaded: {
                             if (groupLoader.item && groupLoader.item.settingsChanged) {
@@ -410,26 +604,25 @@ ColumnLayout {
                                 })
                             }
                         }
-            
-                        Binding { 
-                            target: groupLoader.item 
-                            property: "path" 
-                            value: rootGroup.path.concat([key]) 
+
+                        Binding {
+                            target: groupLoader.item
+                            property: "path"
+                            value: rootGroup.path.concat([key])
                         }
-                        Binding { 
-                            target: groupLoader.item 
-                            property: "settingsObj" 
-                            value: rootGroup.settingsObj 
+                        Binding {
+                            target: groupLoader.item
+                            property: "settingsObj"
+                            value: rootGroup.settingsObj
                         }
-                        Binding { 
-                            target: groupLoader.item 
-                            property: "schemaObj" 
-                            value: fieldSchema 
+                        Binding {
+                            target: groupLoader.item
+                            property: "schemaObj"
+                            value: fieldSchema
                         }
                     }
                 }
             }
-
         }
     }
 }

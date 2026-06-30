@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QAction>
@@ -102,6 +103,7 @@ int main(int argc, char* argv[]) {
         SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 
         QApplication app(argc, argv);
+        QQuickStyle::setStyle("Basic");
 
         const QString lockPath = QDir::temp().absoluteFilePath(QStringLiteral("Animura.lock"));
         QLockFile instanceLock(lockPath);
