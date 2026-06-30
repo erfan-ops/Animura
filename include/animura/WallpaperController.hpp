@@ -16,16 +16,21 @@
 class WallpaperController : public QObject {
     Q_OBJECT
     QML_ELEMENT
+    Q_PROPERTY(int runningModuleId READ getRunningModuleId NOTIFY runningModuleChanged)
 
 public:
     explicit WallpaperController(QObject* parent = nullptr);
     ~WallpaperController();
 
     Q_INVOKABLE QVariantList getModulesList() const;
+    Q_INVOKABLE int getRunningModuleId() const;
     Q_INVOKABLE void startWallpaper(int moduleIndex);
     Q_INVOKABLE void stopWallpaper();
     Q_INVOKABLE QJsonObject loadSettingsUI(int moduleIndex);
     Q_INVOKABLE void applySettings(int moduleIndex, QJsonObject settings);
+
+signals:
+    void runningModuleChanged();
 
 private:
     ModuleCatalog m_catalog;

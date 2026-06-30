@@ -25,6 +25,10 @@ WallpaperController::~WallpaperController() {
     wallpaper::desktop::shutdownWallpaperMethod();
 }
 
+int WallpaperController::getRunningModuleId() const {
+    return m_running ? m_currentModuleId : -1;
+}
+
 QVariantList WallpaperController::getModulesList() const {
     QVariantList list;
     const auto& mods = m_catalog.modules();
@@ -105,6 +109,7 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
     }
 
     m_running = true;
+    emit runningModuleChanged();
 
     m_worker = std::thread([this, info]() {
         try {
@@ -177,6 +182,7 @@ void WallpaperController::stopWallpaper() {
 
     // 3. Reset state
     m_running = false;
+    emit runningModuleChanged();
 
     // 4. Restore the Windows Desktop wallpaper
     restoreWallpaper();

@@ -102,12 +102,18 @@ Drawer {
                     onClicked: root.applyChanges()
                 }
 
-                // Start button
+                // Start / Stop button
                 Button {
-                    text: "Start"
+                    text: backend.runningModuleId === root.moduleId ? "Stop" : "Start"
                     Layout.fillWidth: true
                     enabled: true
-                    onClicked: backend.startWallpaper(root.moduleId)
+                    onClicked: {
+                        if (backend.runningModuleId === root.moduleId) {
+                            backend.stopWallpaper()
+                        } else {
+                            backend.startWallpaper(root.moduleId)
+                        }
+                    }
                 }
             }
 
