@@ -1,6 +1,6 @@
 # Host Application
 
-The Animura host is a Qt 6 C++ application that manages wallpaper module discovery, loading, lifecycle, and provides a QML settings UI.
+The Animura host is a Qt 6 C++ application that manages wallpaper module discovery, loading, lifecycle, and hosts a React frontend inside Microsoft Edge WebView2.
 
 ## Entry Point: `src/main.cpp`
 
@@ -10,13 +10,14 @@ main()
   ├─ QApplication                        // Qt app instance
   ├─ QLockFile ("Animura.lock")          // Single-instance enforcement
   │   └─ If locked: notify running instance via QLocalSocket, exit
-  ├─ QQmlApplicationEngine               // QML engine
   ├─ WallpaperController (ctor)          // Scans /modules directory
-  ├─ ColorDialogHelper                   // Exposes QColorDialog to QML
-  ├─ Context properties:                 // Exposed to QML
-  │   ├─ "backend" → WallpaperController
-  │   ├─ "ColorDialogHelper" → color picker
-  │   └─ "WindowsAccent" → DWM accent color
+  ├─ WebView2Host                        // Creates QWidget + WebView2 control
+  │   ├─ NativeBridge registered         // COM IDispatch → JS bridge
+  │   ├─ Virtual hosts mapped:
+  │   │   ├─ animura.app → frontend/dist/
+  │   │   └─ animura.modules → modules/
+  │   └─ Navigate to production build or dev server
+  ├─ QObject::connect: runningModuleChanged → PostWebMessageAsJson
   ├─ QLocalServer                        // Receives "show" from other instances
   ├─ QSystemTrayIcon                     // Tray icon with Open/Quit menu
   └─ app.exec()                          // Qt event loop
@@ -25,12 +26,12 @@ main()
 ### Single-Instance Pattern
 - Tries to acquire `Animura.lock` in `%TEMP%`.
 - If locked, sends "show" to existing instance via `QLocalSocket`, then exits.
-- Existing instance calls `showMainWindow()` on the root QML window.
+- Existing instance shows and raises its window.
 
 ### Tray Icon
 - "Open Animura" → shows and raises the window.
 - "Quit" → calls `QCoreApplication::quit()`.
-- `onClosing` in QML hides the window instead of closing — the app lives in the tray.
+- The app lives in the tray — closing the window hides it, does not quit.
 
 ---
 
@@ -38,7 +39,7 @@ main()
 
 **File:** `src/WallpaperController.cpp`, `include/animura/WallpaperController.hpp`
 
-The central orchestrator. Lives on the Qt main thread. Exposed to QML as `backend`.
+The central orchestrator. Lives on the Qt main thread. Methods are called from React via the NativeBridge (COM) with thread marshaling.
 
 ### Members
 
@@ -52,10 +53,10 @@ The central orchestrator. Lives on the Qt main thread. Exposed to QML as `backen
 | `m_currentModuleId` | `int` | Index of currently loaded module |
 | `m_originalWallpaper` | `std::wstring` | Saved wallpaper path for restore |
 
-### Public API (Q_INVOKABLE — callable from QML)
+### Public API (Q_INVOKABLE — called via NativeBridge)
 
 #### `getModulesList() → QVariantList`
-Returns list of `{name, version, previewPath, id}` for each discovered module.
+Returns list of `{name, version, previewPath, id}` for each discovered module. `previewPath` is a virtual-host URL (`https://animura.modules/<name>/<file>`) resolved by WebView2 to the modules folder.
 
 #### `startWallpaper(int moduleIndex)`
 Full start sequence:
@@ -71,20 +72,26 @@ Full stop sequence:
 1. Guard: if `!m_running`, return
 2. If `m_module` exists:
    - Detach from desktop (`DetachWindowFromDesktop`)
-   - Hide window style (`~WS_VISIBLE`)
+   - Hide window style
    - Call `m_module->stop()` (sets atomic flag)
 3. Join worker thread (or detach if called from worker thread)
 4. Set `m_running = false`
 5. `m_module.reset()` — **destroys module** (see critical note below)
 6. `restoreWallpaper()` — restores original Windows wallpaper
 
-> **⚠️ CRITICAL:** `m_module.reset()` at step 5 runs on the **main thread**, but the module was created on the **worker thread**. This causes `glfwTerminate()` and GL object deletion to run on the wrong thread. See `/docs/runtime.md` for the fix.
+> **⚠️ CRITICAL:** `m_module.reset()` runs on the **main thread**, but the module was created on the **worker thread**. This causes `glfwTerminate()` and GL object deletion to run on the wrong thread. See `/docs/runtime.md` for the fix.
 
 #### `loadSettingsUI(int moduleIndex) → QJsonObject`
-Returns `{schema, settings}` for the settings panel QML.
+Returns `{schema, settings}` for the settings panel React component.
 
 #### `applySettings(int moduleIndex, QJsonObject)`
 Writes settings JSON to disk using `QSaveFile` (atomic write).
+
+### Signals
+
+| Signal | Emitted when | Connected to |
+|---|---|---|
+| `runningModuleChanged()` | Module starts or stops | WebView2 → `PostWebMessageAsJson` → React updates UI |
 
 ### Private Helpers
 
@@ -96,6 +103,59 @@ Writes settings JSON to disk using `QSaveFile` (atomic write).
 | `ensureLibraryLoaded(ModuleInfo, int)` | Load DLL if needed, stop current if running |
 | `startWorker(ModuleInfo)` | Spawn worker thread, create and run module |
 | `restoreWallpaper()` | Set Windows wallpaper back to saved path |
+
+---
+
+## WebView2Host
+
+**File:** `src/WebView2Host.cpp`, `include/animura/WebView2Host.hpp`
+
+Creates and manages a Microsoft Edge WebView2 control embedded in a Qt `QWidget`.
+
+### Responsibilities
+- Create a top-level `QWidget` window (purple background, centered on screen)
+- Initialize the WebView2 environment and controller
+- Configure settings (scripts enabled, context menus disabled, dev tools gated by `kDevMode`)
+- Register `NativeBridge` as a COM host object → `window.chrome.webview.hostObjects.nativeBridge`
+- Set up virtual host mappings:
+  - `animura.app` → `frontend/dist/` (React app)
+  - `animura.modules` → `modules/` (wallpaper preview images)
+- Handle navigation: dev server (`http://localhost:5173`) or production (`https://animura.app/index.html`)
+- Forward C++ signals to JS via `PostWebMessageAsJson`
+
+### Key Methods
+| Method | Purpose |
+|---|---|
+| `widget()` | Returns the QWidget for tray/single-instance integration |
+| `postMessageToJs(json)` | Sends a JSON message to the React app |
+
+---
+
+## NativeBridge
+
+**File:** `src/NativeBridge.cpp`, `include/animura/NativeBridge.hpp`
+
+COM `IDispatch` implementation registered with WebView2 via `AddHostObjectToScript`. Provides the typed bridge between the React frontend and the C++ backend.
+
+### Thread Safety
+- WebView2 calls `Invoke()` on arbitrary threads
+- All methods marshal to the Qt main thread via `QMetaObject::invokeMethod`
+- `Qt::BlockingQueuedConnection` for cross-thread calls
+- `Qt::DirectConnection` when already on the main thread
+
+### Methods (DISPID mapping)
+
+| DISPID | Method | Returns |
+|---|---|---|
+| 1 | `GetModulesList` | BSTR (JSON array) |
+| 2 | `GetRunningModuleId` | BSTR (integer as string — parse with `Number()`) |
+| 3 | `StartWallpaper(idx)` | void |
+| 4 | `StopWallpaper` | void |
+| 5 | `LoadSettingsUI(idx)` | BSTR (JSON `{schema, settings}`) |
+| 6 | `ApplySettings(idx, json)` | void |
+| 7 | `GetAccentColor` | BSTR (hex color) |
+
+**Important:** All return values are `BSTR` (COM strings). The JS bridge wrapper in `frontend/src/bridge/native.ts` handles type coercion.
 
 ---
 
@@ -115,7 +175,10 @@ struct ModuleInfo {
     std::filesystem::path entryDll;     // relative: "module.dll"
     std::filesystem::path schemaFile;   // relative: "schema.json"
     std::filesystem::path settingsFile; // relative: "settings.json"
-    std::filesystem::path previewFile;  // relative: "preview.jpg"
+    std::filesystem::path previewFile;  // relative: "preview.png"
+
+    // previewPathQt() returns https://animura.modules/<folder>/<file>
+    // for WebView2 virtual-host resolution.
 };
 ```
 
@@ -125,7 +188,7 @@ struct ModuleInfo {
 - `entry` — DLL filename (e.g. `"module.dll"`)
 - `schema` — schema filename (e.g. `"schema.json"`)
 - `settings` — settings filename (e.g. `"settings.json"`)
-- `preview` — preview image filename (e.g. `"preview.jpg"`)
+- `preview` — preview image filename (e.g. `"preview.png"`)
 
 ---
 
@@ -149,47 +212,13 @@ public:
 };
 ```
 
-### Load sequence
-1. Resolve absolute path
-2. `LoadLibraryExW` with `LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_APPLICATION_DIR`
-3. `GetProcAddress(m_lib, "createModule")` — resolve factory function
-4. Store function pointer as `m_createFn`
-
-### Unload
-- `FreeLibrary(m_lib)` — decrements DLL reference count, may unload
-- Sets `m_lib = nullptr`, `m_createFn = nullptr`
-
-### Ownership note
-The `ModuleLibrary` owns the `HMODULE` but does NOT own the module object. The `IWallpaperModule*` returned by `createFn()` is owned by `WallpaperController::m_module` (`unique_ptr`).
-
 ---
 
 ## SettingsSchemaValidator
 
 **File:** `src/SettingsSchemaValidator.cpp`, `include/animura/SettingsSchemaValidator.hpp`
 
-Recursive JSON schema validator. Walks the schema tree and checks each setting value.
-
-### Supported constraints
-| Constraint | Description |
-|---|---|
-| `type: "int"` | Value must be integer |
-| `type: "float"` | Value must be number |
-| `type: "bool"` | Value must be boolean |
-| `type: "string"` | Value must be string |
-| `min` / `max` | Numeric range validation |
-| `options: [...]` | Value must be one of the listed options |
-| Nested objects | Recurse into sub-objects |
-
-Unknown keys in settings (not defined in schema) are ignored. Missing keys in settings (defined in schema) are reported as errors.
-
----
-
-## ColorDialogHelper
-
-**File:** `include/animura/ColorDialogHelper.hpp`
-
-Minimal QML bridge to `QColorDialog::getColor()`. Exposed as `ColorDialogHelper` context property.
+Recursive JSON schema validator. Checks type constraints, min/max ranges, allowed options, and required keys. Validation errors block module start.
 
 ---
 

@@ -1,0 +1,118 @@
+import React from 'react';
+import type { ModuleInfo } from '../types';
+
+interface ModuleCardProps {
+  module: ModuleInfo;
+  onClick: () => void;
+}
+
+export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 260,
+        height: 220,
+        position: 'relative',
+        cursor: 'pointer',
+        transform: hovered ? 'scale(1.04)' : 'scale(1)',
+        transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      {/* Shadow layer (neumorphic depth) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'var(--radius-card)',
+          background: 'var(--shadow-dark)',
+          opacity: hovered ? 0.7 : 0.5,
+          transform: `translate(${hovered ? 5 : 3}px, ${hovered ? 6 : 4}px)`,
+          transition: 'opacity 200ms, transform 200ms',
+        }}
+      />
+
+      {/* Card surface */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: 'var(--radius-card)',
+          background: hovered
+            ? 'linear-gradient(180deg, #281d48 0%, #1e1438 100%)'
+            : 'linear-gradient(180deg, #1e1438 0%, #160d2a 100%)',
+          border: `1px solid ${hovered ? 'rgba(224,64,144,0.4)' : 'rgba(255,255,255,0.03)'}`,
+          transition:
+            'background 180ms, border-color 180ms, border-width 180ms',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Preview image — contain for quality, oversized to fill, clipped by overflow */}
+        <div
+          style={{
+            flex: 1,
+            margin: 4,
+            marginBottom: 2,
+            borderRadius: 14,
+            overflow: 'hidden',
+            background: 'var(--bg-base)',
+            border: '1px solid rgba(0,0,0,0.3)',
+            position: 'relative',
+          }}
+        >
+          <img
+            src={module.previewPath}
+            alt={module.name}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: '120%',
+              height: '120%',
+              objectFit: 'contain',
+              objectPosition: 'center center',
+              transform: 'translate(-50%, -50%)',
+              opacity: 0.92,
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        </div>
+
+        {/* Module name pill */}
+        <div
+          style={{
+            height: 36,
+            margin: '4px 8px 8px',
+            borderRadius: 12,
+            background: 'rgba(6, 3, 16, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--text-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 'calc(100% - 16px)',
+            }}
+          >
+            {module.name}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};

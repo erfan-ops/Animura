@@ -1,0 +1,64 @@
+/* ── Animura Neumorphic Purple/Pink Design Tokens ── */
+:root {
+  --bg-base: #0d0620;
+  --bg-surface: #1a1035;
+  --bg-surface-hover: #221845;
+  --bg-elevated: #261d42;
+  --accent: #e04090;
+  --accent-glow: #ff60b0;
+  --text-primary: #ede4f5;
+  --text-secondary: #b8a9cc;
+  --shadow-dark: #060210;
+  --shadow-light: #2a1a50;
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --radius-card: 18px;
+  --radius-button: 14px;
+  --radius-panel: 24px;
+  --radius-small: 10px;
+  --transition-fast: 120ms;
+  --transition-normal: 180ms;
+  --transition-slow: 280ms;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* Scrollbar styling for WebView2 (chromium-based) */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.35;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  width: 6px;
+  opacity: 0.7;
+}

@@ -15,6 +15,7 @@
         "strategy": "set"
       },
       "binaryDir": "${sourceDir}/build",
+      "toolchainFile": "E:/coding/C/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.8.2/msvc2022_64"
       }

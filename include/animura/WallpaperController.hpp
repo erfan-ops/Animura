@@ -1,9 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include <QQmlEngine>
 #include <QJsonObject>
-#include <QColor>
 
 #include <thread>
 #include <atomic>
@@ -15,8 +13,6 @@
 
 class WallpaperController : public QObject {
     Q_OBJECT
-    QML_ELEMENT
-    Q_PROPERTY(int runningModuleId READ getRunningModuleId NOTIFY runningModuleChanged)
 
 public:
     explicit WallpaperController(QObject* parent = nullptr);

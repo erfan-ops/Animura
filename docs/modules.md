@@ -54,7 +54,7 @@ modules/
     ├── module.json      # Metadata (name, version, entry point)
     ├── schema.json      # JSON Schema for configurable settings
     ├── settings.json    # Current user settings
-    ├── preview.jpg      # Thumbnail shown in module grid
+    ├── preview.png      # Thumbnail shown in module grid (loaded via https://animura.modules/...)
     └── glfw3.dll        # GLFW runtime (bundled per module)
 ```
 
@@ -67,7 +67,7 @@ modules/
     "entry": "module.dll",
     "schema": "schema.json",
     "settings": "settings.json",
-    "preview": "preview.jpg"
+    "preview": "preview.png"
 }
 ```
 
@@ -146,8 +146,8 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 - `m_module.reset()` calls `delete` on the `IWallpaperModule*`
 - Virtual dispatch to `Application::~Application()` (compiler-generated)
 - Members destroyed in **reverse declaration order**:
-  1. `Renderer` — `glDeleteProgram`, `glDeleteVertexArrays`, `glDeleteBuffers`, `glDeleteTextures`, `glDeleteFramebuffers` (context still active ✓)
-  2. `StarSystem` — trivial
+  1. `Renderer` — `glDelete*` (context still active ✓)
+  2. StarSystem — trivial
   3. `Window` — `glfwDestroyWindow()` (destroys window and GL context)
   4. `GlfwContext` — `glfwTerminate()` (shuts down GLFW)
 - **All destruction calls must happen on the worker thread** where GLFW was initialized
@@ -158,15 +158,15 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 
 ### Schema Types
 
-| Type | QML Control | Description |
+| Type | React Control | Description |
 |---|---|---|
 | `"int"` | Slider (integer step) | Integer value with optional min/max |
 | `"float"` | Slider (decimal step) | Float value with optional min/max |
-| `"bool"` | Switch toggle | Boolean on/off |
-| `"select"` | ComboBox dropdown | Value from `options` array |
-| `"color"` | Color swatch → QColorDialog | RGBA array `[r, g, b, a]` (0–1 range) |
-| `"color_list"` | Color grid with add/remove/drag | Array of RGBA arrays |
-| Object (no `"type"`) | Nested `SettingsGroup` | Recursive settings group |
+| `"bool"` | Toggle switch | Boolean on/off |
+| `"select"` | Custom dropdown | Value from `options` array |
+| `"color"` | ColorPicker (HSV, alpha, presets, eye dropper) | RGBA array `[r, g, b, a]` (0–1 range) |
+| `"color_list"` | Color grid with add/remove | Array of RGBA arrays |
+| Object (no `"type"`) | Nested `SettingsControl` | Recursive settings group |
 
 ### Example Schema
 

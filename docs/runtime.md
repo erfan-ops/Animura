@@ -13,21 +13,26 @@
    │   ├─ If locked → notify existing instance → exit
    │   └─ If unlocked → continue
    │
-   ├─ QQmlApplicationEngine engine
    ├─ WallpaperController wallpaperController
    │   └─ ModuleCatalog("modules") → scans ./modules/ directory
    │       └─ Reads each subdirectory's module.json
    │       └─ Validates all required files exist
    │       └─ Populates m_modules vector
    │
-   ├─ ColorDialogHelper colorDialogHelper
-   ├─ engine.rootContext()->setContextProperty(...)
-   │   ├─ "backend" → &wallpaperController
-   │   ├─ "ColorDialogHelper" → &colorDialogHelper
-   │   └─ "WindowsAccent" → getWindowsAccentColor()
+   ├─ WebView2Host webViewHost(&wallpaperController)
+   │   ├─ Creates QWidget window
+   │   ├─ initWebView2()
+   │   │   ├─ CreateCoreWebView2EnvironmentWithOptions
+   │   │   ├─ Create NativeBridge(&wallpaperController)
+   │   │   ├─ Register bridge as "nativeBridge" host object
+   │   │   ├─ Map "animura.modules" virtual host → <exe_dir>\modules\
+   │   │   └─ navigateToApp()
+   │   │       ├─ Dev mode: Navigate("http://localhost:5173")
+   │   │       └─ Production: Map "animura.app" → frontend/dist\
+   │   │                      Navigate("https://animura.app/index.html")
+   │   └─ QWidget* mainWindow = webViewHost.widget()
    │
-   ├─ engine.load("qrc:/qt/qml/animura/main.qml")
-   │
+   ├─ QObject::connect: runningModuleChanged → PostWebMessageAsJson
    ├─ QLocalServer → listens for "show" from other instances
    ├─ connect(aboutToQuit → stopWallpaper)
    ├─ setupTrayIcon()
@@ -35,25 +40,21 @@
    └─ app.exec() → Qt event loop
 ```
 
----
-
 ## Module Loading Sequence
 
 ```
-User clicks "Start" in SettingsPanel
-  → backend.startWallpaper(moduleIndex)
+User clicks "Start" in SettingsPanel (React)
+  → NativeBridge.StartWallpaper(moduleIndex)    [COM call]
+  → Qt main thread: WallpaperController::startWallpaper(moduleIndex)
 
 1. validateIndex(moduleIndex)
    └─ Bounds check on m_catalog.modules()
 
 2. validateModuleFiles(info)
-   └─ std::filesystem::exists(dll_path)
-   └─ std::filesystem::exists(schema_path)
-   └─ std::filesystem::exists(settings_path)
+   └─ std::filesystem::exists(dll_path, schema_path, settings_path)
 
 3. validateModuleSettings(info)
-   └─ Read schema.json → parse JSON
-   └─ Read settings.json → parse JSON
+   └─ Read schema.json + settings.json → parse JSON
    └─ SettingsSchemaValidator::validate(schema, settings, errors)
       ├─ Type checks (int, float, bool, string)
       ├─ Range checks (min, max)
@@ -74,6 +75,7 @@ User clicks "Start" in SettingsPanel
 6. startWorker(info)
    ├─ m_originalWallpaper = GetCurrentWallpaperPath()  // Save for restore
    ├─ m_running = true
+   ├─ emit runningModuleChanged()         // → PostWebMessageAsJson → React
    └─ m_worker = std::thread([this, info]() {
         ├─ Read settings.json → json object
         ├─ m_module.reset(m_library.createFn()(settings.dump().c_str()))
@@ -81,21 +83,11 @@ User clicks "Start" in SettingsPanel
         │       ├─ Parse JSON
         │       ├─ Settings::Instance(json).loadFromJson(json)
         │       ├─ new Application(json)
-        │       │   ├─ settings_(Settings::Instance(json))  // reference
-        │       │   ├─ window_(settings_.MSAA)
-        │       │   │   ├─ glfwWindowHint(...) × N
-        │       │   │   ├─ glfwCreateWindow(desktop_w, desktop_h, ...)
-        │       │   │   ├─ glfwMakeContextCurrent(window)
-        │       │   │   └─ gladLoadGLLoader(...)            // OpenGL loader
-        │       │   ├─ starSystem_(settings_, bounds_rect)
-        │       │   ├─ renderer_(settings_, width, height)
-        │       │   │   ├─ compileShaders(vert, frag) → GLProgram
-        │       │   │   ├─ glGenVertexArrays → VertexArray
-        │       │   │   ├─ glGenBuffers → ArrayBuffer
-        │       │   │   ├─ glGenTextures → GLTexture
-        │       │   │   └─ glGenFramebuffers → FrameBuffer
-        │       │   ├─ initWindow() → glfwGetCursorPos
-        │       │   └─ initOpenGL() → vsync, tick function
+        │       │   ├─ GlfwContext → glfwInit()
+        │       │   ├─ Window → glfwCreateWindow(), glfwMakeContextCurrent()
+        │       │   ├─ gladLoadGLLoader()
+        │       │   ├─ Renderer → compile shaders, VAO, VBO, FBO
+        │       │   └─ StarSystem, etc.
         │       └─ return pointer
         │
         ├─ if (!m_module) throw "factory returned null"
@@ -107,15 +99,14 @@ User clicks "Start" in SettingsPanel
       })
 ```
 
----
-
 ## Module Shutdown Sequence
 
-### Normal Shutdown (User clicks "Stop" from main thread)
+### Normal Shutdown (User clicks "Stop" from React)
 
 ```
-User clicks "Stop" in QML toolbar
-  → backend.stopWallpaper()
+User clicks "Stop" in header or SettingsPanel
+  → NativeBridge.StopWallpaper()             [COM call]
+  → Qt main thread: WallpaperController::stopWallpaper()
 
 1. Guard: if (!m_running) return
 
@@ -131,15 +122,12 @@ User clicks "Stop" in QML toolbar
    }
 
 4. m_running = false
+   emit runningModuleChanged()              // → PostWebMessageAsJson → React
 
 5. m_module.reset()                         // ← ⚠️ CRASH LOCATION
    └─ delete IWallpaperModule*
       └─ ~Application()                     // Compiler-generated
-         ├─ atomic<bool> running            // Trivial
-         ├─ ... timing/input members        // Trivial
          ├─ ~Renderer()                     // glDelete* (NO GL CONTEXT!)
-         ├─ ~vector<Vertex>()               // Trivial
-         ├─ ~StarSystem()                   // Trivial
          ├─ ~Window()                       // glfwDestroyWindow() (WRONG THREAD!)
          └─ ~GlfwContext()                  // glfwTerminate() (WRONG THREAD!)
 
@@ -163,35 +151,56 @@ Main thread (stopWallpaper):
   restoreWallpaper()
 ```
 
-### Self-Stop (called from worker thread, e.g. via invokeMethod)
-
-```
-Worker thread executes stopWallpaper():
-  m_module->stop()          // Sets running=false (same thread)
-  m_worker.detach()         // Can't join self → detach
-  m_running = false
-  m_module.reset()          // Destroys module on worker thread ✓
-                            // BUT: we may still be inside m_module's call stack!
-  restoreWallpaper()
-```
-
-> **Risk:** If `stopWallpaper()` is called from code that is itself called by the module (re-entrant), `m_module.reset()` destroys the module while still inside its call stack. This is a secondary crash risk. Most likely, this path isn't hit in practice (Qt signal from QML dispatches on main thread).
-
 ---
 
 ## Application Shutdown
 
 ```
-QApplication::quit() triggered (tray menu or window close)
+QApplication::quit() triggered (tray menu)
   → QCoreApplication::aboutToQuit signal
   → WallpaperController::stopWallpaper()    // Stop any running module
   → ~WallpaperController()
      ├─ stopWallpaper() again (idempotent via m_running guard)
      └─ wallpaper::desktop::shutdownWallpaperMethod()
+  → ~WebView2Host()
+     ├─ m_webViewController->Close(), Release()
+     ├─ m_webView->Release()
+     ├─ m_env->Release()
+     └─ m_bridge->Release()
   → ~ModuleLibrary()
      └─ FreeLibrary(m_lib)                  // Unload module DLL
-  → ~QQmlApplicationEngine                 // Destroy QML
   → ~QApplication                          // Qt cleanup
+```
+
+---
+
+## Frontend → C++ Communication Flow
+
+```
+1. React calls bridge function (e.g., bridge.getModulesList())
+     → window.chrome.webview.hostObjects.nativeBridge.GetModulesList()
+
+2. WebView2 COM proxy:
+     → Calls NativeBridge::GetIDsOfNames("GetModulesList") → returns DISPID 1
+     → Calls NativeBridge::Invoke(DISPID 1, ...)
+
+3. NativeBridge::Invoke (on WebView2 thread):
+     → QMetaObject::invokeMethod(m_controller, [&]() { ... },
+         Qt::BlockingQueuedConnection)
+     → Blocks WebView2 thread until main thread completes
+
+4. WallpaperController (on Qt main thread):
+     → Executes the requested method
+     → If startWallpaper/stopWallpaper: emit runningModuleChanged()
+     → Signal handler in main.cpp: PostWebMessageAsJson to JS
+
+5. NativeBridge::Invoke returns result as BSTR:
+     → WebView2 converts BSTR → JS string
+     → JS bridge wrapper parses/coerces types (e.g., Number(result))
+
+6. React state updates:
+     → setRunningModuleId(), setModules(), etc.
+     → Components re-render with new data
 ```
 
 ---
@@ -208,6 +217,7 @@ QApplication::quit() triggered (tray menu or window close)
 | **`m_module.reset()`** | **Cross-thread GLFW/GL destruction — CRASH** | **Critical** |
 | DLL unload | `FreeLibrary` happens after `m_module.reset()` — safe | None |
 | Wallpaper restore | Win32 `SetWallpaper` — independent of module state | None |
+| NativeBridge marshaling | Cross-thread with BQ connection — correct | None |
 
 ---
 
@@ -218,4 +228,5 @@ QApplication::quit() triggered (tray menu or window close)
 3. **`stop()` does not block.** It signals the worker thread to exit, then returns immediately.
 4. **`join()` blocks the main thread** until the worker thread's `run()` returns.
 5. **Module destruction must be on the worker thread** — either inside the thread lambda after `run()` returns, or by ensuring the GL context is released and re-acquired on the destroying thread.
-6. **DLL unload must happen after module destruction** — the `ModuleLibrary::unload()` call in `ensureLibraryLoaded()` or `~ModuleLibrary()` correctly occurs after `m_module.reset()`.
+6. **DLL unload must happen after module destruction** — `ModuleLibrary::unload()` correctly occurs after `m_module.reset()`.
+7. **NativeBridge marshals to main thread** — WebView2 threads never touch C++ state directly.

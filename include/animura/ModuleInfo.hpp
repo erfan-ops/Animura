@@ -2,7 +2,6 @@
 #include <string>
 #include <filesystem>
 #include <QString>
-#include <QUrl>
 
 struct ModuleInfo {
     std::filesystem::path basePath;
@@ -20,6 +19,9 @@ struct ModuleInfo {
     std::filesystem::path settingsPath() const { return basePath / settingsFile; }
     std::filesystem::path previewPathFs() const { return basePath / previewFile; }
     QString previewPathQt() const {
-        return QUrl::fromLocalFile(QString::fromStdWString(previewPathFs().wstring())).toString();
+        // Return a virtual-host URL that WebView2 resolves to the modules folder.
+        return QStringLiteral("https://animura.modules/%1/%2")
+            .arg(QString::fromStdWString(basePath.filename().wstring()),
+                 QString::fromStdWString(previewFile.wstring()));
     }
 };
