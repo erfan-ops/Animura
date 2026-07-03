@@ -153,7 +153,6 @@ COM `IDispatch` implementation registered with WebView2 via `AddHostObjectToScri
 | 4 | `StopWallpaper` | void |
 | 5 | `LoadSettingsUI(idx)` | BSTR (JSON `{schema, settings}`) |
 | 6 | `ApplySettings(idx, json)` | void |
-| 7 | `GetAccentColor` | BSTR (hex color) |
 
 **Important:** All return values are `BSTR` (COM strings). The JS bridge wrapper in `frontend/src/bridge/native.ts` handles type coercion.
 

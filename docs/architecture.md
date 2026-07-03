@@ -147,7 +147,6 @@ C++ pushes events via `PostWebMessageAsJson`:
 | 4 | `StopWallpaper` | void |
 | 5 | `LoadSettingsUI(idx)` | BSTR (JSON {schema, settings}) |
 | 6 | `ApplySettings(idx, json)` | void |
-| 7 | `GetAccentColor` | BSTR (hex color string) |
 
 ## Data Flow
 

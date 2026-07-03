@@ -13,7 +13,6 @@ Unlike traditional wallpaper changers, Animura modules can animate, react to mou
 - **Desktop integration** — attaches rendering windows directly behind desktop icons via `WorkerW`
 - **Dynamic settings system** — JSON Schema defines types, ranges, and allowed values; QML UI auto‑generated
 - **System tray support** — minimize to tray, restore, or quit
-- **Windows accent color** — reads DWM colorization for Material theme
 - **Wallpaper safety** — original wallpaper saved and restored when modules stop
 - **Single-instance** — second launch notifies the running instance
 

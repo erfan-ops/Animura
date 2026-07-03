@@ -51,7 +51,6 @@ export interface NativeBridge {
   StopWallpaper(): Promise<void>;
   LoadSettingsUI(moduleIndex: number): Promise<string>;
   ApplySettings(moduleIndex: number, settingsJson: string): Promise<void>;
-  GetAccentColor(): Promise<string>;
 }
 
 export interface BackendMessage {

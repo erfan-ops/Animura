@@ -55,12 +55,6 @@ export async function applySettings(
   await bridge.ApplySettings(moduleIndex, JSON.stringify(settings));
 }
 
-export async function getAccentColor(): Promise<string> {
-  const bridge = getBridge();
-  if (!bridge) return '#e04090';
-  return bridge.GetAccentColor();
-}
-
 /**
  * Subscribe to C++ → JS messages.
  */

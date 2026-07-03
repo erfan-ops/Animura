@@ -60,14 +60,14 @@ The WebView2 SDK is provided via vcpkg. The toolchain file is set in `CMakePrese
 ```cmake
 target_link_libraries(Animura PRIVATE
     Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets
-    Ole32 Dwmapi
+    Ole32
     unofficial::webview2::webview2
     $<$<CONFIG:Debug>:wallpaper_host_static_mtd>
     $<$<NOT:$<CONFIG:Debug>>:wallpaper_host_static_mt>
 )
 ```
 - `Qt6::Core, Gui, Network, Widgets` — application shell, tray, single-instance
-- `Ole32, Dwmapi` — COM and DWM for desktop operations
+- `Ole32` — COM for desktop wallpaper operations
 - `unofficial::webview2::webview2` — Edge WebView2 for hosting the React UI
 - `wallpaper_host_static_mt(d)` — static library in `lib/` providing `desktop_utils.hpp`
 

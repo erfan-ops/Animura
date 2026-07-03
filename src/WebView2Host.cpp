@@ -172,7 +172,7 @@ void WebView2Host::initWebView2() {
                             m_webView->get_Settings(&settings);
                             if (settings) {
                                 settings->put_IsScriptEnabled(TRUE);
-                                settings->put_AreDefaultScriptDialogsEnabled(TRUE);
+                                settings->put_AreDefaultScriptDialogsEnabled(FALSE);
                                 settings->put_IsWebMessageEnabled(TRUE);
                                 settings->put_AreDevToolsEnabled(kDevMode);
                                 settings->put_AreDefaultContextMenusEnabled(FALSE);

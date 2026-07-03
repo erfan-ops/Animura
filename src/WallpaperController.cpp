@@ -140,7 +140,6 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
         });
 }
 
-
 void WallpaperController::startWallpaper(int moduleIndex) {
     if (!validateIndex(moduleIndex)) {
         qWarning() << "Invalid module index:" << moduleIndex;
@@ -189,7 +188,6 @@ void WallpaperController::stopWallpaper() {
 
     qInfo() << "Wallpaper stopped and original restored.";
 }
-
 
 void WallpaperController::restoreWallpaper() const {
     wallpaper::desktop::SetWallpaper(m_originalWallpaper);

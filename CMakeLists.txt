@@ -88,7 +88,6 @@ target_link_libraries(Animura PRIVATE
     Qt6::Network
     Qt6::Widgets
     Ole32
-    Dwmapi
     $<$<CONFIG:Debug>:wallpaper_host_static_mtd>
     $<$<NOT:$<CONFIG:Debug>>:wallpaper_host_static_mt>
 )

@@ -18,7 +18,6 @@ enum BridgeDispId {
     DISPID_STOP_WALLPAPER       = 4,
     DISPID_LOAD_SETTINGS_UI     = 5,
     DISPID_APPLY_SETTINGS       = 6,
-    DISPID_GET_ACCENT_COLOR     = 7,
 };
 
 // ── Name → DISPID map ──
@@ -29,7 +28,6 @@ static const std::pair<const wchar_t*, DISPID> kMethodMap[] = {
     { L"StopWallpaper",      DISPID_STOP_WALLPAPER },
     { L"LoadSettingsUI",     DISPID_LOAD_SETTINGS_UI },
     { L"ApplySettings",      DISPID_APPLY_SETTINGS },
-    { L"GetAccentColor",     DISPID_GET_ACCENT_COLOR },
 };
 
 // ── Helper: convert QJsonObject to std::string ──
@@ -169,10 +167,6 @@ HRESULT NativeBridge::Invoke(
                 m_controller->applySettings(idx, doc.object());
                 break;
             }
-
-            case DISPID_GET_ACCENT_COLOR:
-                result = "#e04090";
-                break;
 
             default:
                 hr = DISP_E_MEMBERNOTFOUND;
