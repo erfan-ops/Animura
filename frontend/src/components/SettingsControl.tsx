@@ -330,20 +330,13 @@ const ColorListControl: React.FC<{
             key={i}
             onClick={() => setSelectedIndex(i)}
             style={{
-              display: 'inline-flex',
-              borderRadius: 10,
-              border:
-                i === selectedIndex
-                  ? '2px solid var(--accent)'
-                  : '2px solid transparent',
-              cursor: 'pointer',
-              transition: 'border 100ms',
-              boxSizing: 'border-box',
               lineHeight: 0,
+              padding: 2, // give the selected box-shadow ring room to render without clipping
             }}
           >
             <ColorPicker
-              compact
+              compact={true}
+              selected={i === selectedIndex}
               value={c}
               onChange={(v) => {
                 const newColors = [...colors];

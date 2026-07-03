@@ -136,9 +136,11 @@ interface ColorPickerProps {
   onChange: (v: number[]) => void;
   /** Renders a compact square trigger for use in color-list grids. */
   compact?: boolean;
+  /** When true, shows an accent ring around the swatch (for color-list selection). */
+  selected?: boolean;
 }
 
-export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compact = false }) => {
+export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compact = false, selected = false }) => {
   const [open, setOpen] = useState(false);
   const [hsva, setHsva] = useState<[number, number, number, number]>(
     () => rgbaToHsva(value[0], value[1], value[2], value[3] ?? 1),
@@ -267,9 +269,11 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
         title={hex}
         style={{
           width: triggerW, height: triggerH, borderRadius: triggerRadius,
-          background: currentCss,
+          backgroundColor: currentCss,
           border: '1.5px solid rgba(255,255,255,0.12)',
-          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25)',
+          boxShadow: selected
+            ? 'inset 0 0 0 1px rgba(0,0,0,0.25), 0 0 0 2px var(--accent)'
+            : 'inset 0 0 0 1px rgba(0,0,0,0.25)',
           cursor: 'pointer', position: 'relative',
           marginBottom: compact ? 0 : 4,
           // Checkerboard for alpha visibility
@@ -278,7 +282,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
       >
         <div style={{
           position: 'absolute', inset: 0, borderRadius: triggerRadius,
-          background: currentCss,
+          backgroundColor: currentCss,
         }} />
       </div>
 
@@ -386,7 +390,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
               }}>
                 <div style={{
                   width: '100%', height: '100%',
-                  background: currentCss,
+                  backgroundColor: currentCss,
                 }} />
               </div>
               <span style={{

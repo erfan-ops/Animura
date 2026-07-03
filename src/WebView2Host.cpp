@@ -7,6 +7,7 @@
 #include <QScreen>
 #include <QDebug>
 #include <QResizeEvent>
+#include <QCloseEvent>
 
 #include <WebView2.h>
 #include <wrl/client.h>
@@ -61,6 +62,14 @@ protected:
     void resizeEvent(QResizeEvent* event) override {
         QWidget::resizeEvent(event);
         if (onResize) onResize(event->size().width(), event->size().height());
+    }
+
+    void closeEvent(QCloseEvent* event) override {
+        // Hide to system tray instead of closing the native window.
+        // Closing would destroy/recreate the HWND, detaching WebView2's
+        // compositor from its render target → invisible content on restore.
+        hide();
+        event->ignore();
     }
 };
 
