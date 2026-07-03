@@ -21,7 +21,7 @@ constexpr const char* kServerName = "AnimuraInstance";
 constexpr const char* kIconPath = ":/icons/icon.ico";
 constexpr int         kLockTimeoutMs = 100;
 
-bool notifyRunningInstance() {
+bool tryNotifyRunningInstance() {
     QLocalSocket socket;
     socket.connectToServer(kServerName);
 
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
         instanceLock.setStaleLockTime(0);
 
         if (!instanceLock.tryLock(kLockTimeoutMs)) {
-            if (notifyRunningInstance())
+            if (tryNotifyRunningInstance())
                 return 0;
         }
 
@@ -121,9 +121,6 @@ int main(int argc, char* argv[]) {
                 client->disconnectFromServer();
             });
         singleInstanceServer.listen(kServerName);
-
-        QObject::connect(&app, &QCoreApplication::aboutToQuit,
-            &wallpaperController, &WallpaperController::stopWallpaper);
 
         app.setQuitOnLastWindowClosed(false);
         app.setWindowIcon(QIcon(kIconPath));

@@ -265,7 +265,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
     <>
       {/* Swatch trigger */}
       <div
-        onClick={() => setOpen(true)}
+        onDoubleClick={() => setOpen(true)}
         title={hex}
         style={{
           width: triggerW, height: triggerH, borderRadius: triggerRadius,

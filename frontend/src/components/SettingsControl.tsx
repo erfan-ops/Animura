@@ -257,6 +257,10 @@ const ColorListControl: React.FC<{
   onChange: (v: number[][]) => void;
 }> = ({ colors, onChange }) => {
   const [selectedIndex, setSelectedIndex] = React.useState<number>(-1);
+  const [addBtnHovered, setAddBtnHovered] = React.useState(false);
+  const [addBtnPressed, setAddBtnPressed] = React.useState(false);
+  const [removeBtnHovered, setRemoveBtnHovered] = React.useState(false);
+  const [removeBtnPressed, setRemoveBtnPressed] = React.useState(false);
 
   const addColor = () => {
     // Add a default white color; user can click to open the picker and adjust.
@@ -276,34 +280,43 @@ const ColorListControl: React.FC<{
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <button
+          onMouseEnter={() => setAddBtnHovered(true)}
+          onMouseLeave={() => {setAddBtnHovered(false); setAddBtnPressed(false)}}
+          onMouseDown={() => setAddBtnPressed(true)}
+          onMouseUp={() => setAddBtnPressed(false)}
           onClick={addColor}
           style={{
             width: 36,
             height: 36,
             borderRadius: 8,
-            background: 'var(--bg-surface)',
+            background: addBtnHovered? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
             border: '1px solid rgba(255,255,255,0.06)',
-            color: 'var(--text-primary)',
+            color: addBtnPressed ? 'var(--accent)' : 'var(--text-primary)',
             fontSize: 18,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontFamily: 'inherit',
+            textShadow: addBtnPressed ? '0 0 4px var(--accent)' : '0 0 0px var(--text-primary)'
           }}
         >
           +
         </button>
         <button
           onClick={removeColor}
+          onMouseEnter={() => setRemoveBtnHovered(true)}
+          onMouseLeave={() => {setRemoveBtnHovered(false); setRemoveBtnPressed(false)}}
+          onMouseDown={() => setRemoveBtnPressed(true)}
+          onMouseUp={() => setRemoveBtnPressed(false)}
           disabled={selectedIndex < 0}
           style={{
             width: 36,
             height: 36,
             borderRadius: 8,
-            background: 'var(--bg-surface)',
+            background: removeBtnHovered? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
             border: '1px solid rgba(255,255,255,0.06)',
-            color: 'var(--text-primary)',
+            color: removeBtnPressed ? 'var(--accent)' : 'var(--text-primary)',
             fontSize: 20,
             cursor: selectedIndex >= 0 ? 'pointer' : 'default',
             opacity: selectedIndex >= 0 ? 1 : 0.4,
@@ -311,6 +324,7 @@ const ColorListControl: React.FC<{
             alignItems: 'center',
             justifyContent: 'center',
             fontFamily: 'inherit',
+            textShadow: removeBtnPressed ? '0 0 4px var(--accent)' : 'none'
           }}
         >
           −

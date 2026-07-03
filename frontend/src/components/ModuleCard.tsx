@@ -51,6 +51,7 @@ export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          boxShadow: `0 0 ${hovered ? '10' : '0'}px rgba(224,64,144,0.7)`,
         }}
       >
         {/* Preview image — contain for quality, oversized to fill, clipped by overflow */}
