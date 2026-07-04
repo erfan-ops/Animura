@@ -1,16 +1,48 @@
+/**
+ * @file components/SettingsPanel.tsx
+ * @brief Slide-in settings drawer for configuring a wallpaper module.
+ *
+ * The panel slides in from the right edge (420px wide, 280ms cubic-bezier
+ * animation). It contains:
+ * - **Header** — "Module Settings" title + Close button + pink gradient separator.
+ * - **Scrollable body** — SettingsControl (recursive form generator from JSON schema).
+ * - **Footer** — Apply button (pink gradient, enabled only when `hasChanged`)
+ *   and Start/Stop toggle button.
+ *
+ * ## Buttons
+ * - **Apply**: Pink gradient when changes exist, dimmed when not. Writes
+ *   settings to disk atomically via the C++ backend (QSaveFile).
+ * - **Start/Stop**: Toggle between starting and stopping the wallpaper.
+ *   Pink accent outline in "Stop" state, subtle white in "Start" state.
+ *   Both have hover glow and pressed scale(0.97) effects.
+ *
+ * A semi-transparent backdrop covers the rest of the UI when the panel is
+ * open; clicking it closes the panel.
+ */
+
 import React from 'react';
 import { SettingsControl } from './SettingsControl';
 
 interface SettingsPanelProps {
+  /** Whether the panel is open (controls slide animation and backdrop). */
   open: boolean;
+  /** The selected module's index (-1 if none selected). */
   moduleId: number;
+  /** JSON Schema for the module's configurable settings. */
   schema: Record<string, unknown>;
+  /** Current settings values (from settings.json). */
   settings: Record<string, unknown>;
+  /** Whether any setting has been modified since last Apply. */
   hasChanged: boolean;
+  /** Called when a setting value changes. Passed through to SettingsControl. */
   onUpdateSetting: (key: string, value: unknown, path: string[]) => void;
+  /** Called when "Apply" is clicked. */
   onApply: () => void;
+  /** Called when Start/Stop is toggled. */
   onToggleStartStop: () => void;
+  /** Called when Close or backdrop is clicked. */
   onClose: () => void;
+  /** Whether the selected module is the currently running one. */
   isRunning: boolean;
 }
 
@@ -35,7 +67,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — clicking closes the panel */}
       {open && (
         <div
           onClick={onClose}

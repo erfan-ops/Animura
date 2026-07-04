@@ -1,3 +1,24 @@
+/**
+ * @file App.tsx
+ * @brief Root layout component for the Animura React frontend.
+ *
+ * Wires backend hooks to UI components. The layout is:
+ * - **Header** — app title + conditionally-visible "Stop Wallpaper" button.
+ * - **ModuleGrid** — responsive grid of available wallpaper module cards.
+ * - **SettingsPanel** — slide-in drawer with auto-generated settings form
+ *   (recursive SettingsControl), Apply button, and Start/Stop toggle.
+ * - **Notification** — floating toast notification queue, centered at top.
+ *
+ * ## State Flow
+ * 1. `useModules()` fetches the module list on mount.
+ * 2. `useRunningModuleId()` tracks the active module via polling + WebView2 messages.
+ * 3. User clicks a module card → `selectedModule` is set → SettingsPanel opens.
+ * 4. `useSettings(selectedModule.id)` loads schema + current settings.
+ * 5. User edits settings → `updateSetting` modifies local state → `hasChanged = true`.
+ * 6. User clicks "Apply" → `applyChanges` writes to disk via NativeBridge.
+ * 7. User clicks "Start"/"Stop" → `toggle` calls startWallpaper/stopWallpaper.
+ */
+
 import React from 'react';
 import { Header } from './components/Header';
 import { ModuleGrid } from './components/ModuleGrid';
@@ -25,6 +46,7 @@ const App: React.FC = () => {
     refresh,
   );
 
+  /** Opens the settings panel for a clicked module. */
   const handleModuleClick = React.useCallback(
     (mod: ModuleInfo) => {
       setSelectedModule(mod);
@@ -33,15 +55,18 @@ const App: React.FC = () => {
     []
   );
 
+  /** Applies settings and shows a success toast. */
   const handleApply = React.useCallback(async () => {
     await applyChanges();
     show('Settings applied', 'success');
   }, [applyChanges, show]);
 
+  /** Toggles the wallpaper module start/stop. */
   const handleToggleStartStop = React.useCallback(async () => {
     await toggle();
   }, [toggle]);
 
+  /** Stops the wallpaper from the header button. */
   const handleStop = React.useCallback(async () => {
     await bridge.stopWallpaper();
     await refresh();
@@ -86,7 +111,7 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* Notifications */}
+      {/* Notifications — centered at top, above all other content */}
       <div
         style={{
           position: 'fixed',

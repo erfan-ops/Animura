@@ -1,3 +1,36 @@
+/**
+ * @file NativeBridge.cpp
+ * @brief Implementation of the COM IDispatch bridge between the React
+ *        frontend (JavaScript) and the C++ backend (WallpaperController).
+ *
+ * NativeBridge is registered with WebView2 via AddHostObjectToScript,
+ * making it available to JS as `window.chrome.webview.hostObjects.nativeBridge`.
+ *
+ * ## DISPID Method Map
+ * | DISPID | JS Method            | C++ Target                 |
+ * |--------|----------------------|----------------------------|
+ * | 1      | `GetModulesList`     | `getModulesList()`         |
+ * | 2      | `GetRunningModuleId` | `getRunningModuleId()`     |
+ * | 3      | `StartWallpaper(idx)`| `startWallpaper(int)`      |
+ * | 4      | `StopWallpaper`      | `stopWallpaper()`          |
+ * | 5      | `LoadSettingsUI(idx)`| `loadSettingsUI(int)`      |
+ * | 6      | `ApplySettings(i,j)` | `applySettings(int, json)` |
+ *
+ * ## Thread Safety
+ * WebView2 calls `Invoke()` on arbitrary COM threads. All method
+ * implementations marshal to the Qt main thread using
+ * `QMetaObject::invokeMethod`. Cross-thread calls use
+ * `Qt::BlockingQueuedConnection` (blocks the WebView2 thread until the
+ * main thread processes the call). When already on the main thread,
+ * `Qt::DirectConnection` is used to avoid self-deadlock.
+ *
+ * ## Return Value Convention
+ * All methods return `BSTR` (COM string). The JS bridge wrapper in
+ * `frontend/src/bridge/native.ts` handles type coercion — for example,
+ * `getRunningModuleId()` returns a string like `"0"` which must be
+ * parsed with `Number()`.
+ */
+
 #include "NativeBridge.hpp"
 #include "WallpaperController.hpp"
 
@@ -120,10 +153,13 @@ HRESULT NativeBridge::Invoke(
                 break;
 
             case DISPID_GET_RUNNING_MODULE_ID:
+                // Returns the module ID as a string — JS must parse with Number().
                 result = std::to_string(m_controller->getRunningModuleId());
                 break;
 
             case DISPID_START_WALLPAPER: {
+                // Extract the module index from the first argument.
+                // COM passes arguments in reverse order (right-to-left).
                 int idx = 0;
                 if (pDispParams->cArgs >= 1) {
                     VariantChangeType(&pDispParams->rgvarg[0],
@@ -150,6 +186,8 @@ HRESULT NativeBridge::Invoke(
             }
 
             case DISPID_APPLY_SETTINGS: {
+                // Extract the module index (second arg) and JSON string (first arg).
+                // COM reverses argument order, so rgvarg[0] is the last arg.
                 int idx = 0;
                 std::string jsonStr;
                 if (pDispParams->cArgs >= 2) {
@@ -174,6 +212,7 @@ HRESULT NativeBridge::Invoke(
         }
     }, connType);
 
+    // Return the result as a BSTR. If there's no result, return VT_EMPTY.
     if (pVarResult && !result.empty()) {
         V_VT(pVarResult) = VT_BSTR;
         std::wstring wresult(result.begin(), result.end());

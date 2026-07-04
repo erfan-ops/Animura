@@ -1,7 +1,18 @@
+/**
+ * @file components/Header.tsx
+ * @brief Application header bar with title and conditional Stop Wallpaper button.
+ *
+ * Displays the "Animura" title on the left and a "Stop Wallpaper" button
+ * on the right that appears only when a wallpaper module is running
+ * (`runningModuleId >= 0`). The button has a subtle pink hover effect.
+ */
+
 import React from 'react';
 
 interface HeaderProps {
+  /** The currently running module ID, or -1 if nothing is running. */
   runningModuleId: number;
+  /** Called when the user clicks "Stop Wallpaper". */
   onStop: () => void;
 }
 

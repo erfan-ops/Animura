@@ -1,8 +1,38 @@
+/**
+ * @file components/SettingsControl.tsx
+ * @brief Recursive form generator that dynamically renders settings controls
+ *        from a JSON Schema.
+ *
+ * This is the most architecturally significant React component in the
+ * frontend. It eliminates per-module UI code — every wallpaper module
+ * defines its configurable settings as a `schema.json`, and SettingsControl
+ * recursively generates the appropriate form controls.
+ *
+ * ## Supported Setting Types
+ * | Schema `type` | React Control     | Description                        |
+ * |---------------|-------------------|------------------------------------|
+ * | `"int"`       | SliderControl     | Integer slider with optional min/max |
+ * | `"float"`     | SliderControl     | Decimal slider with optional min/max/step |
+ * | `"bool"`      | ToggleControl     | Animated on/off toggle switch      |
+ * | `"select"`    | SelectControl     | Custom dropdown with hover effects |
+ * | `"color"`     | ColorControl      | Full ColorPicker (HSV, alpha, presets, eye dropper) |
+ * | `"color_list"`| ColorListControl  | Grid of compact ColorPickers with add/remove |
+ * | Object (no `"type"`) | Recursive SettingsControl | Nested settings group with pink accent bar |
+ *
+ * ## Path Tracking
+ * Nested settings use a `path` array (e.g., `["stars"]`) to traverse the
+ * settings object tree. When `updateSetting` is called, the path is
+ * prepended to the key so the parent hook navigates to the correct nested
+ * location. For example, updating `color` inside `stars` uses:
+ * `onUpdate("color", [1,0,0,1], ["stars"])`.
+ */
+
 import React from 'react';
 import { ColorPicker } from './ColorPicker';
 
 // ── Helpers ──
 
+/** Converts kebab-case keys to Title Case for display labels. */
 function formatName(str: string): string {
   if (!str) return '';
   return str
@@ -13,6 +43,7 @@ function formatName(str: string): string {
 
 // ── Types ──
 
+/** A single node in the JSON schema tree. */
 interface SchemaNode {
   type?: string;
   min?: number;
@@ -23,14 +54,26 @@ interface SchemaNode {
 }
 
 interface SettingsControlProps {
+  /** The schema subtree to render controls for. */
   schemaObj: Record<string, SchemaNode>;
+  /** The settings values subtree. */
   settingsObj: Record<string, unknown>;
+  /** Parent key path for nested groups (e.g., `["stars"]`). */
   path?: string[];
+  /** Called when any setting is modified. */
   onUpdate: (key: string, value: unknown, path: string[]) => void;
 }
 
 // ── Slider ──
 
+/**
+ * Integer or float range slider with neumorphic styling.
+ *
+ * Renders a gradient-filled track (pink accent colors) with a round white
+ * thumb. The native `<input type="range">` is made invisible and overlaid
+ * on top for accessibility and keyboard support; the visual track and
+ * thumb are rendered in CSS below it.
+ */
 const SliderControl: React.FC<{
   value: number;
   min: number;
@@ -102,6 +145,13 @@ const SliderControl: React.FC<{
 
 // ── Toggle ──
 
+/**
+ * Animated on/off toggle switch.
+ *
+ * The knob slides left (off, muted color) to right (on, accent pink)
+ * with a cubic-bezier transition. The track background changes color
+ * to indicate state.
+ */
 const ToggleControl: React.FC<{
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -141,6 +191,14 @@ const ToggleControl: React.FC<{
 
 // ── Select ──
 
+/**
+ * Custom dropdown select control with hover effects.
+ *
+ * Renders a dark surface trigger button. When clicked, a dropdown menu
+ * opens with `position: absolute`. Each option highlights on hover with
+ * a pink tint. The selected option is shown in accent color.
+ * A fixed-position overlay catches clicks outside to close the dropdown.
+ */
 const SelectControl: React.FC<{
   value: string | number;
   options: (string | number)[];
@@ -243,6 +301,7 @@ const SelectControl: React.FC<{
 
 // ── Color ──
 
+/** Wraps the full-featured ColorPicker for use in the settings form. */
 const ColorControl: React.FC<{
   value: number[];
   onChange: (v: number[]) => void;
@@ -252,6 +311,14 @@ const ColorControl: React.FC<{
 
 // ── Color List ──
 
+/**
+ * Editable list of colors with add/remove buttons.
+ *
+ * Displays a grid of compact ColorPickers. Each color can be clicked to
+ * select it (accent ring). A "+" button adds a new default white color;
+ * a "−" button removes the selected color. Used for modules that need
+ * multiple configurable colors (e.g., color gradients, palette entries).
+ */
 const ColorListControl: React.FC<{
   colors: number[][];
   onChange: (v: number[][]) => void;
@@ -367,6 +434,19 @@ const ColorListControl: React.FC<{
 
 // ── Main SettingsControl (recursive) ──
 
+/**
+ * Recursively generates form controls from a JSON Schema subtree.
+ *
+ * For each key in `schemaObj`:
+ * 1. Renders a label (Title Case from key name). Group labels get
+ *    accent color and underline; leaf labels get primary text.
+ * 2. Dispatches on `fieldSchema.type` to render the appropriate control.
+ * 3. If type is absent (plain object), recurses with a nested
+ *    SettingsControl, extending the `path` array with the current key
+ *    so that `updateSetting` navigates to the correct nested level.
+ *
+ * Nested groups are visually indicated by a pink left accent bar.
+ */
 export const SettingsControl: React.FC<SettingsControlProps> = ({
   schemaObj,
   settingsObj,
@@ -408,7 +488,7 @@ export const SettingsControl: React.FC<SettingsControlProps> = ({
               <div
                 style={{
                   height: 1,
-                  background: 'rgba(224,64,144,0.15)',
+                  background: 'linear-gradient(90deg, transparent, rgba(224,64,144,0.25), transparent)',
                   marginTop: 3,
                 }}
               />

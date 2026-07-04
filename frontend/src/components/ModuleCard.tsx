@@ -1,3 +1,22 @@
+/**
+ * @file components/ModuleCard.tsx
+ * @brief Neumorphic preview card for a wallpaper module in the grid.
+ *
+ * Each card is 260×220px with a layered neumorphic design:
+ * - **Shadow layer** — offset dark rectangle behind the card for depth
+ *   (no GPU-heavy box-shadow).
+ * - **Surface layer** — gradient purple surface with subtle white border.
+ * - **Preview image** — loaded from the WebView2 virtual host at
+ *   `https://animura.modules/<folder>/<file>`. Uses contain-quality scaling
+ *   with 120% oversize + overflow clip to fill the image area.
+ * - **Name pill** — translucent dark pill at the bottom with the module name.
+ *
+ * ## Hover Effects
+ * - Card scales to 1.04× with a cubic-bezier transition.
+ * - Surface gradient lightens, border turns pink (`rgba(224,64,144,0.4)`).
+ * - Pink glow shadow appears around the card.
+ */
+
 import React from 'react';
 import type { ModuleInfo } from '../types';
 

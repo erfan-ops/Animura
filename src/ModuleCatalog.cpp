@@ -1,10 +1,31 @@
-// ModuleCatalog.cpp
+/**
+ * @file ModuleCatalog.cpp
+ * @brief Implementation of the module discovery system.
+ *
+ * ModuleCatalog scans the `./modules/` directory for subdirectories
+ * containing valid `module.json` manifest files. Each valid module
+ * directory produces one `ModuleInfo` struct. If zero modules are found,
+ * the constructor throws — the application cannot function without at
+ * least one module.
+ */
+
 #include "ModuleCatalog.hpp"
 #include "JsonUtils.hpp"
 #include <iostream>
 
 using json = nlohmann::json;
 
+/**
+ * @brief Checks that a JSON object contains all required keys.
+ *
+ * Used to validate `module.json` manifests against the 6 required fields:
+ * name, version, entry, schema, settings, preview.
+ *
+ * @param j       The JSON object to check.
+ * @param keys    List of required key names.
+ * @param missing Output — receives the name of the first missing key.
+ * @return true if all required keys are present.
+ */
 static bool hasRequiredFields(const json& j, const std::vector<std::string>& keys, std::string& missing) {
     for (const auto& k : keys)
     {
@@ -29,6 +50,7 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
         auto moduleJsonPath = moduleDir.path() / "module.json";
         if (!std::filesystem::exists(moduleJsonPath)) continue;
 
+        // Parse the module.json manifest.
         json metaJson;
         std::string err;
         if (!JsonUtils::readJsonFile(moduleJsonPath, metaJson, &err)) {
@@ -36,6 +58,7 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
             continue;
         }
 
+        // Validate all 6 required fields are present.
         std::string missing;
         if (!hasRequiredFields(metaJson, { "name","version","entry","schema","settings","preview" }, missing)) {
             std::cout << "Missing property \"" << missing << "\" in \"" << moduleJsonPath << "\"\n";
@@ -52,6 +75,7 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
             metaJson["preview"]
         };
 
+        // Verify all referenced files actually exist on disk.
         if (!std::filesystem::exists(info.entryPath()) ||
             !std::filesystem::exists(info.schemaPath()) ||
             !std::filesystem::exists(info.settingsPath()) ||

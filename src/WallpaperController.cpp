@@ -1,4 +1,26 @@
-﻿#include "WallpaperController.hpp"
+/**
+ * @file WallpaperController.cpp
+ * @brief Implementation of the central wallpaper lifecycle orchestrator.
+ *
+ * WallpaperController manages the full lifecycle of wallpaper modules:
+ * discovery, DLL loading, validation, worker thread spawning, render loop
+ * execution, and shutdown. It is the bridge between the React UI (via
+ * NativeBridge COM calls) and the wallpaper module DLLs.
+ *
+ * ## Threading Architecture
+ * - This class lives on the **Qt main thread**.
+ * - Public methods are called from NativeBridge (marshaled from WebView2
+ *   threads via QMetaObject::invokeMethod with BlockingQueuedConnection).
+ * - Module execution runs on a dedicated **worker thread** (m_worker)
+ *   because GLFW/OpenGL require thread affinity for init, context,
+ *   rendering, and teardown.
+ * - `stop()` sets an atomic flag from the main thread; the worker observes
+ *   it and exits the render loop.
+ * - Module destruction happens inside the worker lambda after `run()`
+ *   returns, ensuring GLFW teardown on the correct thread.
+ */
+
+#include "WallpaperController.hpp"
 #include "JsonUtils.hpp"
 #include "SettingsSchemaValidator.hpp"
 
@@ -14,6 +36,8 @@
 #include <wallpaper-host/desktop_utils.hpp>
 using json = nlohmann::json;
 
+// ── Constructor / Destructor ──
+
 WallpaperController::WallpaperController(QObject* parent)
     : QObject(parent), m_catalog("modules")
 {
@@ -24,6 +48,8 @@ WallpaperController::~WallpaperController() {
     stopWallpaper();
     wallpaper::desktop::shutdownWallpaperMethod();
 }
+
+// ── Public API (Q_INVOKABLE) ──
 
 int WallpaperController::getRunningModuleId() const {
     return m_running ? m_currentModuleId : -1;
@@ -43,6 +69,8 @@ QVariantList WallpaperController::getModulesList() const {
     }
     return list;
 }
+
+// ── Validation Helpers ──
 
 bool WallpaperController::validateIndex(int moduleIndex) const {
     return moduleIndex >= 0 && moduleIndex < static_cast<int>(m_catalog.modules().size());
@@ -85,7 +113,10 @@ bool WallpaperController::validateModuleSettings(const ModuleInfo& info) const {
     return true;
 }
 
+// ── DLL Loading ──
+
 bool WallpaperController::ensureLibraryLoaded(const ModuleInfo& info, int moduleIndex) {
+    // If the same module is already loaded, skip the reload.
     if (moduleIndex == m_currentModuleId && m_library.isLoaded())
         return true;
 
@@ -102,7 +133,10 @@ bool WallpaperController::ensureLibraryLoaded(const ModuleInfo& info, int module
     return true;
 }
 
+// ── Worker Thread ──
+
 void WallpaperController::startWorker(const ModuleInfo& info) {
+    // Save the original wallpaper path before the module takes over the desktop.
     m_originalWallpaper = wallpaper::desktop::GetCurrentWallpaperPath();
     if (m_originalWallpaper.empty()) {
         qWarning() << "Warning: Could not retrieve current wallpaper path.";
@@ -111,6 +145,14 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
     m_running = true;
     emit runningModuleChanged();
 
+    /**
+     * Worker thread lambda — OWNs the module lifecycle.
+     *
+     * This is the ONLY thread where GLFW/OpenGL operations are allowed.
+     * The module is created here, run here, and crucially DESTROYED here
+     * (after run() returns), ensuring glfwDestroyWindow() and
+     * glfwTerminate() execute on the same thread that called glfwInit().
+     */
     m_worker = std::thread([this, info]() {
         try {
             json settingsJson;
@@ -119,18 +161,23 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
                 throw std::runtime_error("Failed to read settings: " + err);
             }
 
+            // Call the DLL's factory function to create the module.
+            // Ownership transfers to m_module (unique_ptr).
             m_module.reset(m_library.createFn()(settingsJson.dump().c_str()));
             if (!m_module) {
                 throw std::runtime_error("Module factory returned null.");
             }
 
-            // Prepare Window
+            // Prepare Window — show it and attach to the desktop WorkerW layer.
             SetWindowLongPtrW(m_module->hwnd(), GWL_STYLE, WS_VISIBLE);
             wallpaper::desktop::AttachWindowToDesktop(m_module->hwnd());
 
-            // Blocking call: module runs until stop() is called
+            // Blocking call: module runs until stop() is called from the main thread.
             m_module->run();
 
+            // Destroy the module on the WORKER thread.
+            // This is critical: ~Application() calls glDelete*, glfwDestroyWindow(),
+            // and glfwTerminate(), all of which require the GLFW thread's context.
             m_module.reset();
         }
         catch (const std::exception& e) {
@@ -139,6 +186,8 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
         }
         });
 }
+
+// ── Start / Stop ──
 
 void WallpaperController::startWallpaper(int moduleIndex) {
     if (!validateIndex(moduleIndex)) {
@@ -171,7 +220,7 @@ void WallpaperController::stopWallpaper() {
 
     // 2. Safely Join the thread
     // Note: If stopWallpaper is called FROM the worker thread (via invokeMethod),
-    // we MUST NOT join the thread to itself. 
+    // we MUST NOT join the thread to itself.
     if (m_worker.joinable() && std::this_thread::get_id() != m_worker.get_id()) {
         m_worker.join();
     }
@@ -192,6 +241,8 @@ void WallpaperController::stopWallpaper() {
 void WallpaperController::restoreWallpaper() const {
     wallpaper::desktop::SetWallpaper(m_originalWallpaper);
 }
+
+// ── Settings I/O ──
 
 QJsonObject WallpaperController::loadSettingsUI(int moduleIndex) {
     if (!validateIndex(moduleIndex)) return {};

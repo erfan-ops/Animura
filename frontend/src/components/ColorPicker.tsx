@@ -1,3 +1,36 @@
+/**
+ * @file components/ColorPicker.tsx
+ * @brief Full-featured color picker with HSV area, hue/alpha sliders,
+ *        preset palette, custom color storage, and eye dropper support.
+ *
+ * The color picker operates in two modes:
+ * - **Normal** — a 48×36 swatch trigger that opens a centered popup
+ *   (rendered via `createPortal` to `document.body` to escape parent
+ *   overflow/transform clipping from the SettingsPanel drawer).
+ * - **Compact** — a 36×36 square trigger with optional accent ring,
+ *   used in color-list grids.
+ *
+ * ## Popup Contents
+ * - **SV area** — saturation × value picking surface with crosshair
+ *   thumb. Rendered as a hue-tinted background overlaid with white-to-right
+ *   and black-to-top gradients.
+ * - **Hue slider** — rainbow gradient bar for selecting hue (0–360°).
+ * - **Alpha slider** — transparency bar with checkerboard background and
+ *   gradient overlay.
+ * - **Preview + hex** — current color preview swatch and hex code display.
+ * - **Eye dropper** — Chromium `EyeDropper` API button to sample any
+ *   pixel on screen (only available in WebView2).
+ * - **Presets** — 20 predefined colors in a clickable grid.
+ * - **Custom colors** — up to 8 user-saved colors persisted in
+ *   `localStorage`. Right-click to remove.
+ *
+ * ## Pointer Interaction
+ * Uses `setPointerCapture` for reliable drag tracking on the SV area,
+ * hue slider, and alpha slider. `pointermove` events are captured at the
+ * window level so dragging continues even if the pointer leaves the
+ * element bounds.
+ */
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -7,6 +40,7 @@ function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
+/** Converts RGBA (0–1 range) to HSVA (H: 0–360, S/V/A: 0–1). */
 function rgbaToHsva(r: number, g: number, b: number, a: number): [number, number, number, number] {
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -22,6 +56,7 @@ function rgbaToHsva(r: number, g: number, b: number, a: number): [number, number
   return [h * 360, s, v, a];
 }
 
+/** Converts HSVA (H: 0–360, S/V/A: 0–1) to RGBA (0–1 range). */
 function hsvaToRgba(h: number, s: number, v: number, a: number): number[] {
   h = ((h % 360) + 360) % 360;
   const c = v * s;
@@ -42,6 +77,7 @@ function hsvaToRgba(h: number, s: number, v: number, a: number): number[] {
   ];
 }
 
+/** Converts RGBA array to CSS color string (e.g., `rgba(255,128,64,1)`). */
 function rgbaToCss(rgba: number[]): string {
   const r = Math.round(rgba[0] * 255);
   const g = Math.round(rgba[1] * 255);
@@ -50,6 +86,7 @@ function rgbaToCss(rgba: number[]): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+/** Converts HSVA to hex string (e.g., `#ff8040ff`). Alpha is omitted when 1.0. */
 function hsvaToHex(h: number, s: number, v: number, a: number): string {
   const [r, g, b] = hsvaToRgba(h, s, v, 1);
   const toHex = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0');
@@ -57,6 +94,7 @@ function hsvaToHex(h: number, s: number, v: number, a: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}${alpha === 'ff' ? '' : alpha}`;
 }
 
+/** Converts hex string (with or without alpha) to RGBA array. */
 function hexToRgba(hex: string): number[] {
   const h = hex.replace('#', '');
   const r = parseInt(h.slice(0, 2), 16) / 255;
@@ -82,6 +120,7 @@ declare global {
 
 // ── Preset palette ──
 
+/** 20 preset colors displayed in the picker popup. */
 const PRESET_COLORS: number[][] = [
   [1, 0, 0, 1],          [1, 0.27, 0, 1],       [1, 0.55, 0, 1],
   [1, 0.84, 0, 1],       [0.95, 0.95, 0, 1],    [0.68, 1, 0.18, 1],
@@ -91,6 +130,8 @@ const PRESET_COLORS: number[][] = [
   [0, 0, 0, 1],          [0.3, 0.3, 0.3, 1],    [0.6, 0.6, 0.6, 1],
   [0.9, 0.9, 0.9, 1],    [1, 1, 1, 1],
 ];
+
+/** Maximum number of custom colors stored in localStorage. */
 const MAX_CUSTOM = 8;
 const CUSTOM_STORAGE_KEY = 'animura-custom-colors';
 
@@ -118,7 +159,7 @@ const thumbStyle: React.CSSProperties = {
   zIndex: 2,
 };
 
-// ── Shared checkerboard pattern ──
+// ── Shared checkerboard pattern (for alpha visibility) ──
 
 const checkerboard = {
   backgroundImage: `linear-gradient(45deg, #555 25%, transparent 25%),
@@ -132,7 +173,9 @@ const checkerboard = {
 // ── Component ──
 
 interface ColorPickerProps {
+  /** Current color as RGBA array (0–1 range). */
   value: number[];
+  /** Called when the color changes. */
   onChange: (v: number[]) => void;
   /** Renders a compact square trigger for use in color-list grids. */
   compact?: boolean;
@@ -152,11 +195,12 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
   const hueRef = useRef<HTMLDivElement>(null);
   const alphaRef = useRef<HTMLDivElement>(null);
 
-  // Sync when external value changes
+  // Sync when external value changes (e.g., when settings are loaded).
   useEffect(() => {
     setHsva(rgbaToHsva(value[0], value[1], value[2], value[3] ?? 1));
   }, [value]);
 
+  /** Converts HSVA to RGBA and calls onChange. */
   const commit = useCallback(
     (h: number, s: number, v: number, a: number) => {
       const next = hsvaToRgba(h, s, v, a);
@@ -169,6 +213,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
 
   const hasEyeDropper = typeof window !== 'undefined' && 'EyeDropper' in window;
 
+  /** Opens the Chromium EyeDropper to sample a pixel from the screen. */
   const openEyeDropper = useCallback(async () => {
     if (!hasEyeDropper) return;
     try {
@@ -263,7 +308,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
 
   return (
     <>
-      {/* Swatch trigger */}
+      {/* Swatch trigger — double-click to open the full picker popup */}
       <div
         onDoubleClick={() => setOpen(true)}
         title={hex}
@@ -289,7 +334,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, compa
       {/* Popup — portaled to body to escape SettingsPanel's transform+overflow clipping */}
       {open && createPortal(
         <>
-          {/* Backdrop */}
+          {/* Backdrop — clicking closes the picker */}
           <div
             onClick={() => setOpen(false)}
             style={{ position: 'fixed', inset: 0, zIndex: 9998 }}

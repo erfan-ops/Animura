@@ -1,7 +1,26 @@
+/**
+ * @file hooks/useBackend.ts
+ * @brief React hooks for communicating with the C++ backend via NativeBridge.
+ *
+ * These hooks encapsulate all C++ ↔ JS communication for the React UI:
+ * - `useModules` — fetches the module list once on mount.
+ * - `useRunningModuleId` — tracks the active module via polling and
+ *   WebView2 web messages.
+ * - `useSettings` — loads schema/settings when the selected module changes
+ *   and provides `updateSetting` / `applyChanges` for the settings form.
+ * - `useStartStop` — toggles the module's running state and forces a sync
+ *   after the action completes.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import type { ModuleInfo, SettingsUI } from '../types';
 import * as bridge from '../bridge/native';
 
+/**
+ * Fetches the list of available wallpaper modules on mount.
+ *
+ * @returns `{ modules, loading }` — the module array and whether the initial fetch is in progress.
+ */
 export function useModules() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +35,20 @@ export function useModules() {
   return { modules, loading };
 }
 
+/**
+ * Tracks the ID of the currently running wallpaper module.
+ *
+ * Uses two mechanisms:
+ * 1. **Initial poll** — calls `getRunningModuleId()` on mount.
+ * 2. **WebView2 messages** — listens for `runningModuleChanged` messages
+ *    pushed from C++ when a module starts or stops.
+ * 3. **Manual refresh** — `refresh()` forces an immediate poll. Called
+ *    after start/stop actions because the WebView2 message is asynchronous
+ *    and may not arrive before the next React render cycle.
+ *
+ * @returns `{ runningModuleId, refresh }` — the current running module ID
+ *          (-1 if none) and a function to force a poll.
+ */
 export function useRunningModuleId() {
   const [runningModuleId, setRunningModuleId] = useState(-1);
 
@@ -41,6 +74,23 @@ export function useRunningModuleId() {
   return { runningModuleId, refresh };
 }
 
+/**
+ * Manages the settings schema and values for a selected module.
+ *
+ * When `moduleId` changes (user clicks a different module), reloads the
+ * schema and current settings from disk via the C++ backend.
+ *
+ * `updateSetting` modifies a nested setting value using a path array
+ * (e.g., `["stars", "color"]`). It creates shallow copies at each level
+ * to trigger React re-renders.
+ *
+ * `applyChanges` writes the current settings to disk via the C++ backend
+ * and resets the `hasChanged` flag.
+ *
+ * @param moduleId The index of the module whose settings are being edited.
+ *                 Values < 0 mean no module is selected.
+ * @returns `{ schema, settings, hasChanged, updateSetting, applyChanges }`
+ */
 export function useSettings(moduleId: number) {
   const [schema, setSchema] = useState<Record<string, unknown>>({});
   const [settings, setSettings] = useState<Record<string, unknown>>({});
@@ -55,6 +105,17 @@ export function useSettings(moduleId: number) {
     });
   }, [moduleId]);
 
+  /**
+   * Updates a single setting value, navigating through nested path segments.
+   *
+   * Uses shallow copies at each level so React detects the state change.
+   * Sets `hasChanged = true` to enable the Apply button.
+   *
+   * @param key   The setting key to update.
+   * @param value The new value.
+   * @param path  Array of parent group keys for nested settings (e.g., `["stars"]`).
+   *              Empty for top-level settings.
+   */
   const updateSetting = useCallback(
     (key: string, value: unknown, path: string[] = []) => {
       setSettings((prev) => {
@@ -77,6 +138,10 @@ export function useSettings(moduleId: number) {
     []
   );
 
+  /**
+   * Writes the current settings to disk via the C++ backend.
+   * Uses QSaveFile on the C++ side for atomic writes.
+   */
   const applyChanges = useCallback(async () => {
     await bridge.applySettings(moduleId, settings);
     setHasChanged(false);
@@ -86,6 +151,19 @@ export function useSettings(moduleId: number) {
   return { schema, settings, hasChanged, updateSetting, applyChanges };
 }
 
+/**
+ * Manages the Start/Stop toggle for a wallpaper module.
+ *
+ * `isRunning` is derived: `runningModuleId === moduleId`.
+ * `toggle()` calls start or stop depending on current state, then
+ * calls `refresh()` to force an immediate poll of the running module ID
+ * rather than waiting for the async WebView2 message.
+ *
+ * @param moduleId        The module this toggle controls.
+ * @param runningModuleId The currently running module's ID (from useRunningModuleId).
+ * @param refresh         The refresh function from useRunningModuleId.
+ * @returns `{ isRunning, toggle }`
+ */
 export function useStartStop(
   moduleId: number,
   runningModuleId: number,

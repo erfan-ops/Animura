@@ -1,10 +1,24 @@
+/**
+ * @file components/ModuleGrid.tsx
+ * @brief Responsive CSS grid that renders available wallpaper modules as
+ *        ModuleCard components.
+ *
+ * When `loading` is true, displays a "Loading modules..." placeholder.
+ * Otherwise, renders a centered auto-fill grid with 280px column tracks
+ * and 20px gaps. Each ModuleCard is wrapped in a center-justified flex
+ * container so cards stay centered regardless of grid column count.
+ */
+
 import React from 'react';
 import type { ModuleInfo } from '../types';
 import { ModuleCard } from './ModuleCard';
 
 interface ModuleGridProps {
+  /** Array of modules to display (from `useModules()`). */
   modules: ModuleInfo[];
+  /** Whether the initial module list fetch is still in progress. */
   loading: boolean;
+  /** Called when a module card is clicked. Passes the selected ModuleInfo. */
   onModuleClick: (module: ModuleInfo) => void;
 }
 
