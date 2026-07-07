@@ -98,7 +98,11 @@ void setupTrayIcon(QApplication& app, QWidget* mainWindow) {
 
     QObject::connect(openAction, &QAction::triggered, [mainWindow]() {
         if (mainWindow) {
-            mainWindow->show();
+            if (mainWindow->isMinimized()) {
+                mainWindow->showNormal();
+            } else {
+                mainWindow->show();
+            }
             mainWindow->raise();
             mainWindow->activateWindow();
         }
@@ -113,7 +117,11 @@ void setupTrayIcon(QApplication& app, QWidget* mainWindow) {
     QObject::connect(trayIcon, &QSystemTrayIcon::activated,
         [mainWindow](QSystemTrayIcon::ActivationReason reason) {
             if (reason == QSystemTrayIcon::Trigger && mainWindow) {
-                mainWindow->show();
+                if (mainWindow->isMinimized()) {
+                    mainWindow->showNormal();
+                } else {
+                    mainWindow->show();
+                }
                 mainWindow->raise();
                 mainWindow->activateWindow();
             }
@@ -176,7 +184,11 @@ int main(int argc, char* argv[]) {
                 client->waitForReadyRead();
                 const QByteArray msg = client->readAll();
                 if (msg == "show" && mainWindow) {
-                    mainWindow->show();
+                    if (mainWindow->isMinimized()) {
+                        mainWindow->showNormal();
+                    } else {
+                        mainWindow->show();
+                    }
                     mainWindow->raise();
                     mainWindow->activateWindow();
                 }

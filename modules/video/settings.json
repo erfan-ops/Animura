@@ -1,0 +1,6 @@
+{
+  "video-path": "",
+  "scaling-mode": "fit",
+  "audio-amplitude": 1.0,
+  "audio-chunk-size": 512
+}

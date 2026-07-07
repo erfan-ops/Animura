@@ -2,9 +2,6 @@
 #include <windows.h>
 #include <string>
 
-// Export / import macros
-// - When building/using a DLL, define BUILDING_WALLPAPER_HOST
-// - When linking against the static library, define WALLPAPER_HOST_STATIC
 #if defined(WALLPAPER_HOST_STATIC)
 #  define WALLPAPER_HOST_API
 #elif defined(BUILDING_WALLPAPER_HOST)

@@ -1,0 +1,18 @@
+{
+  "video-path": {
+    "type": "file"
+  },
+  "scaling-mode": {
+    "type": "select",
+    "options": ["fit", "fill"]
+  },
+  "audio-amplitude": {
+    "type": "float",
+    "min": 0,
+    "max": 1
+  },
+  "audio-chunk-size": {
+    "type": "select",
+    "options": [32, 64, 128, 256, 512, 1024, 2048]
+  }
+}

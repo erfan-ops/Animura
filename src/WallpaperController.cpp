@@ -155,15 +155,21 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
      */
     m_worker = std::thread([this, info]() {
         try {
-            json settingsJson;
-            std::string err;
-            if (!JsonUtils::readJsonFile(info.settingsPath(), settingsJson, &err)) {
-                throw std::runtime_error("Failed to read settings: " + err);
+            // Read the settings file as raw bytes and pass them directly
+            // to the module — no JSON parse/dump round-trip that could
+            // corrupt multi-byte UTF-8 sequences.
+            QFile f(QString::fromStdWString(info.settingsPath().wstring()));
+            if (!f.open(QIODevice::ReadOnly)) {
+                throw std::runtime_error(
+                    "Failed to open settings: " +
+                    info.settingsPath().string());
             }
+            const QByteArray raw = f.readAll();
+            f.close();
 
             // Call the DLL's factory function to create the module.
             // Ownership transfers to m_module (unique_ptr).
-            m_module.reset(m_library.createFn()(settingsJson.dump().c_str()));
+            m_module.reset(m_library.createFn()(raw.constData()));
             if (!m_module) {
                 throw std::runtime_error("Module factory returned null.");
             }

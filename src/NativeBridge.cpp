@@ -44,6 +44,7 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QWidget>
+
 #include <sstream>
 
 // ── DISPID constants (method IDs for Invoke) ──
@@ -202,7 +203,10 @@ HRESULT NativeBridge::Invoke(
 
                     if (pDispParams->rgvarg[0].vt == VT_BSTR) {
                         std::wstring ws(pDispParams->rgvarg[0].bstrVal);
-                        jsonStr = std::string(ws.begin(), ws.end());
+                        // Use QString for proper UTF-16 → UTF-8 conversion.
+                        // Truncating wchar_t to char directly corrupts any
+                        // character above U+00FF (e.g. CJK codepoints).
+                        jsonStr = QString::fromStdWString(ws).toStdString();
                     }
                 }
                 QJsonDocument doc = QJsonDocument::fromJson(
@@ -243,7 +247,10 @@ HRESULT NativeBridge::Invoke(
     // Return the result as a BSTR. If there's no result, return VT_EMPTY.
     if (pVarResult && !result.empty()) {
         V_VT(pVarResult) = VT_BSTR;
-        std::wstring wresult(result.begin(), result.end());
+        // Use QString for proper UTF-8 → UTF-16 conversion. The naive
+        // byte-for-byte widening (std::wstring(begin, end)) corrupts
+        // multi-byte characters like CJK codepoints in file paths.
+        std::wstring wresult = QString::fromStdString(result).toStdWString();
         pVarResult->bstrVal = SysAllocString(wresult.c_str());
     } else if (pVarResult) {
         V_VT(pVarResult) = VT_EMPTY;
