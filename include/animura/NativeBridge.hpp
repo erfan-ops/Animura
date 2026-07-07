@@ -5,6 +5,7 @@
 #include <ocidl.h>
 
 class WallpaperController;
+class QWidget;
 
 /**
  * @brief COM IDispatch host object exposed to JavaScript via WebView2's
@@ -25,6 +26,7 @@ class WallpaperController;
  * | 4      | `StopWallpaper`      | `stopWallpaper()`          |
  * | 5      | `LoadSettingsUI(idx)`| `loadSettingsUI(int)`      |
  * | 6      | `ApplySettings(i, j)`| `applySettings(int, json)` |
+ * | 7      | `PickFile(filter?)`   | Opens native file dialog, returns path |
  *
  * ## Thread Safety
  * - WebView2 calls `Invoke()` on arbitrary threads.
@@ -46,11 +48,14 @@ class WallpaperController;
 class NativeBridge : public IDispatch {
 public:
     /**
-     * @brief Constructs the bridge with a reference to the controller.
+     * @brief Constructs the bridge with a reference to the controller and
+     *        the main window widget (used as parent for native dialogs).
      * @param controller The WallpaperController to delegate calls to.
      *                   Non-owning pointer — must outlive this bridge.
+     * @param parentWindow The top-level QWidget window, used as the parent
+     *                     for native dialogs like QFileDialog.
      */
-    explicit NativeBridge(WallpaperController* controller);
+    explicit NativeBridge(WallpaperController* controller, QWidget* parentWindow = nullptr);
 
     /** Virtual destructor for COM interface safety. */
     virtual ~NativeBridge() = default;
@@ -130,6 +135,13 @@ public:
 private:
     /** The backend controller. Non-owning — owned by main(). */
     WallpaperController* m_controller;
+
+    /**
+     * The main application window. Used as the parent for native dialogs
+     * (e.g., QFileDialog) to ensure correct window stacking and focus.
+     * Non-owning — owned by WebView2Host. May be nullptr.
+     */
+    QWidget* m_parentWindow{ nullptr };
 
     /** Optional callback for JS→C++ web messages. Currently unused. */
     MessageCallback m_callback;

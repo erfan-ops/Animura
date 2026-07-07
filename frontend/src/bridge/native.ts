@@ -130,6 +130,26 @@ export async function applySettings(
 }
 
 /**
+ * Opens a native file dialog (Windows file picker) and returns the full path
+ * of the selected file.
+ *
+ * The C++ side uses `QFileDialog::getOpenFileName` on the Qt main thread.
+ * An optional filter string can be passed to restrict visible file types
+ * (e.g., `"Videos (*.mp4 *.avi)"`).
+ *
+ * @param filter Optional file filter string for the native dialog.
+ * @returns The full path of the selected file, or an empty string if cancelled.
+ */
+export async function pickFile(filter?: string): Promise<string> {
+  const bridge = getBridge();
+  if (!bridge) return '';
+  if (filter) {
+    return await bridge.PickFile(filter);
+  }
+  return await bridge.PickFile();
+}
+
+/**
  * Subscribes to C++ → JS web messages.
  *
  * The C++ side calls `PostWebMessageAsJson` with messages like:

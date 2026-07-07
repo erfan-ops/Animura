@@ -34,7 +34,7 @@ export interface ModuleInfo {
  */
 export interface SchemaField {
   /** Setting type — drives control selection in SettingsControl. */
-  type?: 'int' | 'float' | 'bool' | 'select' | 'color' | 'color_list' | 'string';
+  type?: 'int' | 'float' | 'bool' | 'select' | 'color' | 'color_list' | 'string' | 'file';
   /** Minimum value (for int/float sliders). */
   min?: number;
   /** Maximum value (for int/float sliders). */
@@ -111,6 +111,8 @@ export interface NativeBridge {
   LoadSettingsUI(moduleIndex: number): Promise<string>;
   /** Writes settings JSON to disk (atomic via QSaveFile). */
   ApplySettings(moduleIndex: number, settingsJson: string): Promise<void>;
+  /** Opens a native file dialog and returns the selected file's full path. */
+  PickFile(filter?: string): Promise<string>;
 }
 
 /** Shape of a C++ → JS web message (e.g., runningModuleChanged). */

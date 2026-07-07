@@ -17,6 +17,7 @@
  * | `"select"`    | SelectControl     | Custom dropdown with hover effects |
  * | `"color"`     | ColorControl      | Full ColorPicker (HSV, alpha, presets, eye dropper) |
  * | `"color_list"`| ColorListControl  | Grid of compact ColorPickers with add/remove |
+ * | `"file"`      | FileControl        | Browse button + path display for file selection |
  * | Object (no `"type"`) | Recursive SettingsControl | Nested settings group with pink accent bar |
  *
  * ## Path Tracking
@@ -29,6 +30,7 @@
 
 import React from 'react';
 import { ColorPicker } from './ColorPicker';
+import * as bridge from '../bridge/native';
 
 // ── Helpers ──
 
@@ -309,6 +311,85 @@ const ColorControl: React.FC<{
   return <ColorPicker value={value} onChange={onChange} />;
 };
 
+// ── File ──
+
+/**
+ * File picker control with browse button and path display.
+ *
+ * Calls into the C++ NativeBridge, which opens a `QFileDialog` on the Qt
+ * main thread to present the native Windows file picker. This returns the
+ * full absolute path of the selected file — unlike the browser's
+ * `<input type="file">` which strips the path for security reasons.
+ *
+ * Styling matches the other settings controls: dark surface browse button
+ * with pink accent hover, and the path shown in secondary text when empty.
+ */
+const FileControl: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ value, onChange }) => {
+  const [hovered, setHovered] = React.useState(false);
+  const [pressed, setPressed] = React.useState(false);
+
+  const handleBrowse = async () => {
+    const path = await bridge.pickFile();
+    if (path) {
+      onChange(path);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          onClick={handleBrowse}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => {
+            setHovered(false);
+            setPressed(false);
+          }}
+          onMouseDown={() => setPressed(true)}
+          onMouseUp={() => setPressed(false)}
+          style={{
+            height: 38,
+            borderRadius: 10,
+            padding: '0 16px',
+            background: hovered
+              ? 'var(--bg-surface-hover)'
+              : 'var(--bg-surface)',
+            border: hovered
+              ? '1px solid rgba(224,64,144,0.3)'
+              : '1px solid rgba(255,255,255,0.06)',
+            color: pressed ? 'var(--accent)' : 'var(--text-primary)',
+            fontSize: 13,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            transition: 'background 120ms, border-color 120ms',
+            whiteSpace: 'nowrap',
+            transform: pressed ? 'scale(0.97)' : 'scale(1)',
+          }}
+        >
+          Browse...
+        </button>
+        <span
+          style={{
+            flex: 1,
+            fontSize: 12,
+            color: value ? 'var(--text-primary)' : 'var(--text-secondary)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            userSelect: value ? 'text' : 'none',
+          }}
+          title={value || undefined}
+        >
+          {value || 'No file selected'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 // ── Color List ──
 
 /**
@@ -537,6 +618,17 @@ export const SettingsControl: React.FC<SettingsControlProps> = ({
               <SelectControl
                 value={val}
                 options={opts}
+                onChange={(v) => onUpdate(key, v, path)}
+              />
+            );
+            break;
+          }
+
+          case 'file': {
+            const val = (current[key] as string) ?? '';
+            controlEl = (
+              <FileControl
+                value={val}
                 onChange={(v) => onUpdate(key, v, path)}
               />
             );

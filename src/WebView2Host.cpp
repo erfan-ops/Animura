@@ -229,7 +229,7 @@ void WebView2Host::initWebView2() {
 
             // Create the NativeBridge COM object. It is AddRef'd here
             // and also AddRef'd when passed to AddHostObjectToScript.
-            m_bridge = new NativeBridge(m_controller);
+            m_bridge = new NativeBridge(m_controller, m_window);
             m_bridge->AddRef();
 
             m_bridge->setMessageCallback([this](const std::string&) {});

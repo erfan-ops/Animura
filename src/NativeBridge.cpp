@@ -15,6 +15,7 @@
  * | 4      | `StopWallpaper`      | `stopWallpaper()`          |
  * | 5      | `LoadSettingsUI(idx)`| `loadSettingsUI(int)`      |
  * | 6      | `ApplySettings(i,j)` | `applySettings(int, json)` |
+ * | 7      | `PickFile`           | `pickFile()`             |
  *
  * ## Thread Safety
  * WebView2 calls `Invoke()` on arbitrary COM threads. All method
@@ -41,6 +42,8 @@
 #include <QJsonArray>
 #include <QVariant>
 #include <QDebug>
+#include <QFileDialog>
+#include <QWidget>
 #include <sstream>
 
 // ── DISPID constants (method IDs for Invoke) ──
@@ -51,6 +54,7 @@ enum BridgeDispId {
     DISPID_STOP_WALLPAPER       = 4,
     DISPID_LOAD_SETTINGS_UI     = 5,
     DISPID_APPLY_SETTINGS       = 6,
+    DISPID_PICK_FILE             = 7,
 };
 
 // ── Name → DISPID map ──
@@ -61,6 +65,7 @@ static const std::pair<const wchar_t*, DISPID> kMethodMap[] = {
     { L"StopWallpaper",      DISPID_STOP_WALLPAPER },
     { L"LoadSettingsUI",     DISPID_LOAD_SETTINGS_UI },
     { L"ApplySettings",      DISPID_APPLY_SETTINGS },
+    { L"PickFile",           DISPID_PICK_FILE },
 };
 
 // ── Helper: convert QJsonObject to std::string ──
@@ -78,8 +83,8 @@ static std::string qvariantListToString(const QVariantList& list) {
 
 // ── Constructor ──
 
-NativeBridge::NativeBridge(WallpaperController* controller)
-    : m_controller(controller) {
+NativeBridge::NativeBridge(WallpaperController* controller, QWidget* parentWindow)
+    : m_controller(controller), m_parentWindow(parentWindow) {
 }
 
 // ── IUnknown ──
@@ -203,6 +208,29 @@ HRESULT NativeBridge::Invoke(
                 QJsonDocument doc = QJsonDocument::fromJson(
                     QString::fromStdString(jsonStr).toUtf8());
                 m_controller->applySettings(idx, doc.object());
+                break;
+            }
+
+            case DISPID_PICK_FILE: {
+                // Open a native Windows file dialog on the Qt main thread.
+                // Returns the selected file path as a string, or empty string
+                // if the user cancelled. A filter string can be passed as the
+                // first optional argument (e.g. "Videos (*.mp4 *.avi)").
+                QString filter = QStringLiteral("All Files (*.*)");
+                if (pDispParams->cArgs >= 1) {
+                    if (pDispParams->rgvarg[0].vt == VT_BSTR) {
+                        std::wstring ws(pDispParams->rgvarg[0].bstrVal);
+                        filter = QString::fromStdWString(ws);
+                    }
+                }
+                QString path = QFileDialog::getOpenFileName(
+                    m_parentWindow,
+                    QStringLiteral("Select File"),
+                    QString(),
+                    filter);
+                if (!path.isEmpty()) {
+                    result = path.toStdString();
+                }
                 break;
             }
 
