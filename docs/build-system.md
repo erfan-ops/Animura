@@ -147,7 +147,7 @@ export default defineConfig({
 | Build type | Executable | Shared library (DLL) |
 | Qt dependency | Qt 6 (4 modules) | None |
 | WebView2 | Yes | No |
-| Graphics | None (host is GUI) | OpenGL + GLFW |
+| Graphics | None (host is GUI) | Varies by module (e.g., OpenGL + GLFW) |
 | Shader embedding | N/A | Custom cmake script |
 | Package manager | vcpkg (WebView2 only) | vcpkg |
 
@@ -161,12 +161,14 @@ set_target_properties(module PROPERTIES
 )
 ```
 
-### Module Dependencies
+### Module Dependencies (Example: OpenGL-based module)
 ```cmake
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(module PRIVATE OpenGL::GL glfw)
 ```
+
+Modules are free to use any rendering technology. The build configuration above shows a typical OpenGL/GLFW module — other modules may use different libraries (DirectX, Vulkan, SDL, media frameworks, etc.) with their own `find_package` and `target_link_libraries` directives.
 
 ---
 
@@ -184,7 +186,6 @@ build/
     └── modules/
         ├── star-simulator/
         │   ├── module.dll
-        │   ├── glfw3.dll
         │   ├── module.json
         │   ├── schema.json
         │   ├── settings.json
@@ -220,8 +221,8 @@ cmake --build build --config Release
 | WebView2 SDK | ✓ | ✗ | vcpkg (`unofficial-webview2`) |
 | wallpaper_host | ✓ (static lib) | ✗ | `lib/` directory |
 | React / TypeScript / Vite | ✓ (frontend) | ✗ | npm (`frontend/package.json`) |
-| OpenGL | ✗ | ✓ | Windows SDK |
-| GLFW 3 | ✗ | ✓ | vcpkg (`x64-windows-static`) |
+| OpenGL | ✗ | Varies | Windows SDK (for modules that use it) |
+| GLFW 3 | ✗ | Varies | vcpkg (for modules that use it) |
 | nlohmann/json | ✓ | ✓ | Bundled headers (`include/nlohmann/json.hpp`) |
 
 ---

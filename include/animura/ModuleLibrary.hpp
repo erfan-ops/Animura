@@ -28,7 +28,7 @@ using CreateModuleFn = IWallpaperModule * (*)(const char*);
  * 1. `load(path)` → `unload()` any previously loaded DLL.
  * 2. Resolve absolute path.
  * 3. `LoadLibraryExW` with search flags that include the DLL's own
- *    directory (so bundled dependencies like `glfw3.dll` are found).
+ *    directory (so bundled dependencies like rendering library DLLs are found).
  * 4. `GetProcAddress(m_lib, "createModule")` → store function pointer.
  *
  * ## Critical Rule

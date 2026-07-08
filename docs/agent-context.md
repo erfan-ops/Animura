@@ -8,7 +8,7 @@
 - **Name:** Animura — modular live wallpaper engine for Windows
 - **Language:** C++20 (host), TypeScript + React 18 (frontend)
 - **Build:** CMake 3.30+, MSVC 2022, static CRT (`/MT`), Vite 5
-- **Platform:** Windows only (Win32 + OpenGL + GLFW + WebView2)
+- **Platform:** Windows only (Win32 + WebView2 + Qt 6)
 
 ### Key Directories
 ```
@@ -22,7 +22,7 @@ Animura/
 │       ├── bridge/         # C++ ↔ JS communication layer
 │       ├── hooks/          # Custom React hooks
 │       └── theme/          # CSS design tokens
-├── modules/                # Wallpaper plugin DLLs (8 modules)
+├── modules/                # Wallpaper plugin DLLs
 ├── resources/              # .qrc (icon only), .rc, icon.ico
 └── lib/                    # wallpaper_host static libs
 ```
@@ -43,10 +43,11 @@ Module sources live separately at `E:/coding/C/live-wallpaper-modules/<name>/`.
 
 ### Critical Architecture Rules
 
-1. **GLFW/OpenGL thread affinity is LAW.**
-   - `glfwInit()`, `glfwCreateWindow()`, `glfwMakeContextCurrent()`, all GL calls, `glfwDestroyWindow()`, `glfwTerminate()` — ALL must happen on the **same thread**.
-   - The worker thread (`m_worker`) is the GLFW thread. The Qt main thread is NOT.
-   - **Never** call GLFW/GL functions from the main thread.
+1. **Rendering library thread affinity is LAW.**
+   - Module initialization, window creation, context management, rendering, and teardown must all happen on the **same thread**.
+   - This applies to common libraries: GLFW (`glfwInit`/`glfwTerminate`), OpenGL contexts, Direct3D devices, Vulkan instances.
+   - The worker thread (`m_worker`) is the rendering thread. The Qt main thread is NOT.
+   - **Never** call rendering functions from the main thread.
 
 2. **Module lifecycle contract:**
    - `createModule(json)` → `run()` → `stop()` → `~IWallpaperModule()`
@@ -78,8 +79,8 @@ Main Thread (Qt):        UI events, WallpaperController public methods,
                          m_module->stop(), m_module->hwnd()
 WebView2 Threads:        Managed internally — callbacks arrive here,
                          marshaled to main thread via NativeBridge
-Worker Thread (m_worker): Module creation, glfwInit, glfwCreateWindow,
-                         mainLoop(), OpenGL, glfwTerminate, module destruction
+Worker Thread (m_worker): Module creation, rendering init, window creation,
+                         mainLoop(), rendering, teardown, module destruction
 ```
 
 ### Module Interface (ABI Contract)
@@ -99,11 +100,12 @@ extern "C" __declspec(dllexport) IWallpaperModule* createModule(const char* sett
 ### What NOT to Assume
 
 - ❌ Do NOT assume `m_module.reset()` is safe to call from any thread
-- ❌ Do NOT assume GLFW functions are thread-safe (they have strict thread affinity)
+- ❌ Do NOT assume rendering libraries are thread-safe (many have strict thread affinity)
 - ❌ Do NOT assume `stop()` blocks until `run()` returns
 - ❌ Do NOT assume the module DLL is unloaded immediately after `m_module.reset()`
-- ❌ Do NOT assume OpenGL objects can be deleted without a current context
+- ❌ Do NOT assume rendering objects can be deleted without a current context
 - ❌ Do NOT assume all modules use the same CRT or compiler settings
+- ❌ Do NOT assume all modules use the same rendering library
 - ✅ The host uses static CRT `/MT` — verify modules match
 
 ### Build Commands

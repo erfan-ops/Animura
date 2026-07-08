@@ -13,38 +13,38 @@
 │  │  │         → SettingsPanel → SettingsControl (recursive)│  │  │
 │  │  │         → Header, Notification                       │  │  │
 │  │  └──────────────┬───────────────────────────────────────┘  │  │
-│  │                 │ COM IDispatch                             │  │
+│  │                 │ COM IDispatch                            │  │
 │  │  ┌──────────────▼───────────────────────────────────────┐  │  │
 │  │  │  NativeBridge (IDispatch → Qt main thread marshal)   │  │  │
 │  │  └──────────────┬───────────────────────────────────────┘  │  │
 │  └─────────────────│──────────────────────────────────────────┘  │
-│                    │                                              │
+│                    │                                             │
 │  ┌─────────────────▼──────────────────────────────────────────┐  │
-│  │              WallpaperController                            │  │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐   │  │
-│  │  │ModuleCatalog│  │ModuleLibrary │  │m_module         │   │  │
-│  │  │(discovery)  │  │(LoadLibrary) │  │(unique_ptr)     │   │  │
-│  │  └─────────────┘  └──────────────┘  └────────┬────────┘   │  │
+│  │              WallpaperController                           │  │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐    │  │
+│  │  │ModuleCatalog│  │ModuleLibrary │  │m_module         │    │  │
+│  │  │(discovery)  │  │(LoadLibrary) │  │(unique_ptr)     │    │  │
+│  │  └─────────────┘  └──────────────┘  └────────┬────────┘    │  │
 │  │  ┌───────────────────────────────────────────▼──────────┐  │  │
 │  │  │              m_worker (std::thread)                  │  │  │
 │  │  │  ┌────────────────────────────────────────────────┐  │  │  │
 │  │  │  │        IWallpaperModule (DLL)                  │  │  │  │
-│  │  │  │  Application::run() → mainLoop()              │  │  │  │
-│  │  │  │  (OpenGL / GLFW render loop)                  │  │  │  │
+│  │  │  │  Application::run() → mainLoop()               │  │  │  │
+│  │  │  │  (module render loop)                          │  │  │  │
 │  │  │  └────────────────────────────────────────────────┘  │  │  │
 │  │  └──────────────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│  QSystemTrayIcon  QLockFile  QLocalServer                         │
-└───────────────────────────────────────────────────────────────────┘
+│                                                                  │
+│  QSystemTrayIcon  QLockFile  QLocalServer                        │
+└──────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                   WorkerW Desktop Layer                           │
+│                   WorkerW Desktop Layer                          │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │            Module's GLFW Window                             │  │
-│  │            (Attached via AttachWindowToDesktop)             │  │
-│  │            Renders live wallpaper content                   │  │
+│  │            Module's Window                                 │  │
+│  │            (Attached via AttachWindowToDesktop)            │  │
+│  │            Renders live wallpaper content                  │  │
 │  └────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -96,9 +96,8 @@ DLL-based plugins implementing `IWallpaperModule`. Each module ships:
 - `schema.json` — JSON Schema defining configurable settings
 - `settings.json` — current setting values (user-editable)
 - `preview.png`/`.jpg` — preview thumbnail
-- `glfw3.dll` — GLFW runtime (bundled per module)
 
-Available modules: black-hole, delaunay-flow, eclipse-frame, fireflies, hypercube-harmony, infinite-mirror, shahr-flow, star-simulator.
+Available modules include: black-hole, delaunay-flow, eclipse-frame, fireflies, hypercube-harmony, infinite-mirror, shahr-flow, star-simulator, and more.
 
 ### 5. Desktop Integration (`include/wallpaper-host/`, `lib/`)
 Static library providing Win32 wallpaper manipulation:
@@ -110,9 +109,9 @@ Static library providing Win32 wallpaper manipulation:
 
 ```
 ┌──────────┐  COM IDispatch   ┌──────────────┐  QMetaObject    ┌────────────────────┐
-│  React   │ ────────────────►│ NativeBridge  │ ──────────────►│ WallpaperController │
-│   (JS)   │                  │ (IDispatch)   │  invokeMethod  │     (QObject)       │
-│          │◄─────────────────│               │◄───────────────│                     │
+│  React   │ ────────────────►│ NativeBridge │ ──────────────►│ WallpaperController │
+│   (JS)   │                  │ (IDispatch)  │  invokeMethod  │     (QObject)       │
+│          │◄─────────────────│              │◄───────────────│                     │
 └──────────┘  BSTR return     └──────────────┘  Direct/BQ      └────────────────────┘
      │                              ▲              conn               │
      │  PostWebMessageAsJson        │                                 │
@@ -190,17 +189,17 @@ User clicks "Stop"
 │ WallpaperController: stopWallpaper(), startWallpaper(),    │
 │   applySettings()                                          │
 │ m_module->stop(), m_module->hwnd() (cross-thread, safe)    │
-│ NEVER: glfwInit, glfwCreateWindow, OpenGL calls            │
+│ NEVER: render library init, window creation, draw calls    │
 └────────────────────────────────────────────────────────────┘
                           │
                           │ m_worker (std::thread)
                           ▼
 ┌─ Worker Thread ────────────────────────────────────────────┐
-│ Module creation: glfwInit(), glfwCreateWindow()            │
+│ Module creation: window init, render context creation      │
 │ Module execution: Application::mainLoop()                  │
-│   → while(running) { update; render; swap; poll; }         │
-│ Module destruction: ~Application(), glfwTerminate()        │
-│ ALL GLFW/OpenGL calls MUST happen here                     │
+│   → while(running) { update; render; present; poll; }      │
+│ Module destruction: ~Application(), teardown               │
+│ ALL rendering library calls MUST happen here               │
 └────────────────────────────────────────────────────────────┘
 
 ┌─ WebView2 Threads (managed internally) ────────────────────┐
@@ -210,7 +209,7 @@ User clicks "Stop"
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Critical rule:** GLFW initialization/teardown and OpenGL operations must happen on the **worker thread** where the GL context is current.
+**Critical rule:** Rendering library initialization/teardown and draw operations must happen on the **worker thread** where the module was created. Many libraries (OpenGL, Direct3D, Vulkan) require thread-affine resource management.
 
 ## Resource Ownership
 
@@ -219,8 +218,8 @@ User clicks "Stop"
 | `IWallpaperModule*` | `WallpaperController::m_module` (`unique_ptr`) | From `startWorker()` to `stopWallpaper()` / worker exit |
 | `HMODULE` (DLL) | `ModuleLibrary::m_lib` | From `load()` to `unload()` or destructor |
 | `Settings` singleton | Function-local static in DLL | From first `Instance()` call until DLL unload |
-| `GLFWwindow*` | Module's Window class | Lifetime of `Application` |
-| OpenGL objects (VAO, VBO, shaders, FBO) | Module's Renderer class | RAII — destroyed with `Application` |
+| Window handle | Module's windowing abstraction | Lifetime of `Application` |
+| Rendering objects (contexts, buffers, shaders) | Module's renderer class | RAII — destroyed with `Application` |
 | Worker thread | `WallpaperController::m_worker` | From `startWorker()` to `join()`/`detach()` |
 | WebView2 environment | `WebView2Host::m_env` (COM pointer) | From init callback to destructor |
 | NativeBridge | `WebView2Host::m_bridge` (COM pointer) | From init callback to destructor |

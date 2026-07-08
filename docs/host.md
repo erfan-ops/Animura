@@ -75,11 +75,9 @@ Full stop sequence:
    - Hide window style
    - Call `m_module->stop()` (sets atomic flag)
 3. Join worker thread (or detach if called from worker thread)
+   - The worker lambda calls `m_module.reset()` after `run()` returns, ensuring destruction on the correct thread
 4. Set `m_running = false`
-5. `m_module.reset()` — **destroys module** (see critical note below)
-6. `restoreWallpaper()` — restores original Windows wallpaper
-
-> **⚠️ CRITICAL:** `m_module.reset()` runs on the **main thread**, but the module was created on the **worker thread**. This causes `glfwTerminate()` and GL object deletion to run on the wrong thread. See `/docs/runtime.md` for the fix.
+5. `restoreWallpaper()` — restores original Windows wallpaper
 
 #### `loadSettingsUI(int moduleIndex) → QJsonObject`
 Returns `{schema, settings}` for the settings panel React component.

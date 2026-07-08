@@ -1,6 +1,6 @@
 # Example Module: Star Simulator
 
-A detailed walkthrough of the `star-simulator` module, representing the canonical module architecture used by all Animura wallpaper plugins.
+A detailed walkthrough of the `star-simulator` module, representing one concrete implementation of the `IWallpaperModule` interface. This module uses OpenGL + GLFW for rendering — other modules may use different rendering technologies (DirectX, Vulkan, SDL, media playback, etc.). The only requirement is correct implementation of the `IWallpaperModule` interface.
 
 **Source:** `E:/coding/C/live-wallpaper-modules/star-simulator/`
 
@@ -10,20 +10,20 @@ A detailed walkthrough of the `star-simulator` module, representing the canonica
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                  IWallpaperModule                    │
-│                    (Interface)                       │
+│                  IWallpaperModule                   │
+│                    (Interface)                      │
 ├─────────────────────────────────────────────────────┤
 │                  Application                        │
-│  ┌──────────┐ ┌────────┐ ┌──────────────────────┐  │
+│  ┌───────────┐ ┌────────┐ ┌──────────────────────┐  │
 │  │GlfwContext│ │Window  │ │     Renderer         │  │
 │  │glfwInit   │ │GLFWwin │ │ VAO, VBO, shaders,   │  │
 │  │glfwTerm   │ │dow+GL  │ │ FBO, draw calls      │  │
-│  └──────────┘ └────────┘ └──────────────────────┘  │
-│  ┌──────────┐ ┌─────────────────────────────────┐  │
-│  │Settings& │ │        StarSystem               │  │
-│  │(singleton│ │ std::vector<Star> + update loop │  │
+│  └───────────┘ └────────┘ └──────────────────────┘  │
+│  ┌──────────┐ ┌──────────────────────────────────┐  │
+│  │Settings& │ │        StarSystem                │  │
+│  │(singleton│ │ std::vector<Star> + update loop  │  │
 │  │ ref)     │ │                                  │  │
-│  └──────────┘ └─────────────────────────────────┘  │
+│  └──────────┘ └──────────────────────────────────┘  │
 │  mainLoop(): while(running) { update; render; }     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -211,8 +211,8 @@ Holds the shader programs, VAO, VBO, and framebuffer. Constructed with `Settings
 
 ## Known Risk Areas
 
-### 1. Cross-Thread Destruction (HOST BUG)
-The host destroys `Application` from the main thread, but `glfwTerminate()` and `glDelete*` require the worker thread's GL context. **This is the primary crash cause.**
+### 1. Thread Affinity for Destruction
+The host calls `m_module.reset()` inside the worker thread lambda after `run()` returns, ensuring `glfwTerminate()` and `glDelete*` execute on the same thread that performed initialization. Module developers should ensure their destructors are safe to call from the creation thread.
 
 ### 2. Settings noexcept Violation
 `Settings::Instance()` is `noexcept` but can throw on first call (bad JSON). This causes `std::terminate()`.

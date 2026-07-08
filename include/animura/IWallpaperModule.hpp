@@ -18,11 +18,11 @@
  *
  * - `run()` starts the render loop and blocks until `stop()` signals exit.
  * - `stop()` only sets an atomic flag; it does NOT wait, join threads, or
- *   touch GLFW/OpenGL state.
+ *   touch rendering library state.
  * - The destructor must execute on the **same thread** that created the
- *   module, because GLFW requires `glfwDestroyWindow()` and
- *   `glfwTerminate()` to be called from the thread that called
- *   `glfwInit()`.
+ *   module, because many rendering libraries require thread-affine teardown
+ *   (e.g., GLFW's `glfwDestroyWindow()`/`glfwTerminate()` must be called
+ *   from the thread that called `glfwInit()`).
  *
  * ## ABI Stability Requirements
  * - Both host and module must compile with **static CRT (/MT)** — mixing
@@ -46,9 +46,9 @@ public:
      * pointer dispatches to the most-derived destructor chain.
      *
      * @warning Must execute on the **worker thread** — the same thread that
-     *          owns the GLFW context. The destructor chain calls
-     *          `glfwDestroyWindow()` and `glfwTerminate()`, which require
-     *          thread affinity with the GLFW initialization thread.
+     *          created the module. Many rendering libraries require teardown
+     *          on the initialization thread (e.g., GLFW's
+     *          `glfwDestroyWindow()`/`glfwTerminate()`).
      */
     virtual ~IWallpaperModule() = default;
 
@@ -56,7 +56,7 @@ public:
      * @brief Starts the module's render loop. **Blocking call.**
      *
      * Called from the worker thread after the module has been created and
-     * its GLFW window has been attached to the desktop WorkerW layer.
+     * its window has been attached to the desktop WorkerW layer.
      *
      * The implementation enters a frame loop:
      * ```
@@ -64,16 +64,18 @@ public:
      * while (running) {
      *     update(dt);      // advance simulation
      *     render();        // upload geometry, issue draw calls
-     *     glfwSwapBuffers();
-     *     glfwPollEvents();
+     *     present();       // swap buffers / present frame
+     *     pollEvents();    // process window events
      * }
      * ```
      *
      * Returns only after `stop()` has set the atomic `running` flag to
      * false and the current frame iteration completes.
      *
-     * @note All GLFW/OpenGL calls within `run()` execute on the caller's
-     *       thread, which must be the same thread that called `glfwInit()`.
+     * @note All rendering calls within `run()` execute on the caller's
+     *       thread. Modules using libraries with thread affinity (e.g.,
+     *       OpenGL, Direct3D, Vulkan) must ensure `run()` is called from
+     *       the same thread that performed initialization.
      *
      * @see stop() for the non-blocking exit signal.
      */
@@ -90,7 +92,7 @@ public:
      *
      * It must NOT:
      * - Block or join threads.
-     * - Call any GLFW or OpenGL function.
+     * - Call any rendering library function.
      * - Wait for `run()` to return.
      *
      * The host calls `m_worker.join()` after `stop()` to synchronize with
@@ -101,18 +103,18 @@ public:
     virtual void stop() = 0;
 
     /**
-     * @brief Returns the native Win32 window handle of the module's GLFW
-     *        window.
+     * @brief Returns the native Win32 window handle of the module's window.
      *
      * Used by the host to:
      * - Attach the window to the desktop WorkerW layer (behind icons).
      * - Detach the window on wallpaper stop.
      * - Show/hide the window during lifecycle transitions.
      *
-     * @return HWND of the GLFW window (obtained via
-     *         `glfwGetWin32Window()`).
+     * @return HWND of the module's window. For GLFW-based modules this is
+     *         obtained via `glfwGetWin32Window()`; other libraries provide
+     *         their own native handle accessors.
      *
-     * @note Thread-safe — returns a const pointer, no state mutation.
+     * @note Thread-safe — returns a const handle, no state mutation.
      *       Safe to call from the main thread while the render loop runs
      *       on the worker thread.
      */

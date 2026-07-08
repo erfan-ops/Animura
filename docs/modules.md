@@ -1,6 +1,8 @@
 # Module System
 
-Animura wallpaper modules are **DLL-based plugins** that implement the `IWallpaperModule` interface. Each module renders live animated content directly onto the Windows desktop via OpenGL.
+Animura wallpaper modules are **DLL-based plugins** that implement the `IWallpaperModule` interface. Each module renders live animated content directly onto the Windows desktop.
+
+The host application is **renderer-agnostic** — a module only needs to implement the `IWallpaperModule` interface. Modules are free to use any rendering technology, graphics library, windowing framework, or multimedia system they choose, as long as they correctly implement the required interface contract.
 
 ## Interface Contract
 
@@ -55,7 +57,7 @@ modules/
     ├── schema.json      # JSON Schema for configurable settings
     ├── settings.json    # Current user settings
     ├── preview.png      # Thumbnail shown in module grid (loaded via https://animura.modules/...)
-    └── glfw3.dll        # GLFW runtime (bundled per module)
+    └── ...              # Module-specific dependencies (e.g., rendering library DLLs)
 ```
 
 ### `module.json` Format
@@ -84,7 +86,7 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 ## Module Lifecycle Contract
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────────────┐
 │                         HOST THREAD (main)                        │
 │                                                                   │
 │  startWallpaper(idx)                                              │
@@ -95,46 +97,42 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 │    → DetachWindowFromDesktop()                                    │
 │    → m_module->stop()         ← sets atomic, returns immediately  │
 │    → m_worker.join()          ← blocks until run() returns        │
-│    → m_module.reset()         ← destroys module (WRONG THREAD!)   │
 │    → restoreWallpaper()                                           │
-└──────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────┘
                           │                        ▲
                           │ spawns                 │ joins
                           ▼                        │
-┌──────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────────────┐
 │                       WORKER THREAD                               │
 │                                                                   │
 │  createModule(settingsJson)                                       │
-│    → new Application(settings)                                    │
-│      → GlfwContext()          ← glfwInit()                        │
-│      → Window(msaa)           ← glfwCreateWindow()                │
-│      → Renderer()             ← OpenGL shader compilation, VAO... │
+│    → Module constructor (init rendering, create window, etc.)     │
 │                                                                   │
 │  m_module->run()                                                  │
 │    → running = true                                               │
 │    → mainLoop()                                                   │
 │      → while(running) {                                           │
-│          update; render; glfwSwapBuffers; glfwPollEvents;         │
+│          update; render; present; poll;                           │
 │        }                                                          │
 │    → returns when stop() sets running = false                     │
 │                                                                   │
-│  [module should be destroyed here, on the worker thread]          │
-└──────────────────────────────────────────────────────────────────┘
+│  m_module.reset()    ← destroys module (worker thread teardown)   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ### Phase 1: Creation (Worker Thread)
 - `createModule(json)` is called
-- `Application` constructor runs:
-  - `GlfwContext` → `glfwInit()`
-  - `Window` → `glfwCreateWindow()`, `glfwMakeContextCurrent()`, `gladLoadGLLoader()`
-  - OpenGL objects: VAO, VBO, shader programs, framebuffers, textures
-- All GLFW/GL state is bound to the **worker thread**
+- The module constructor initializes its resources:
+  - Windowing (e.g., GLFW, SDL, DirectX window creation)
+  - Rendering context (e.g., OpenGL context, Direct3D device, Vulkan instance)
+  - Graphics resources (buffers, shaders, textures, etc.)
+- All per-thread state should be bound to the **worker thread**
 
 ### Phase 2: Execution (Worker Thread)
 - `run()` is called → `running = true` → `mainLoop()`
-- Render loop: update simulation → upload geometry → render → swap buffers → poll events → tick
+- Render loop: update simulation → render frame → present to window → poll events
 - The loop checks `running` (atomic) each iteration
-- `glfwSwapBuffers` presents the frame to the desktop-embedded window
+- The frame is presented through the desktop-embedded window
 
 ### Phase 3: Stop Signal (Main Thread → Worker Thread)
 - `stop()` is called from the main thread
@@ -142,15 +140,11 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 - Returns immediately — does NOT wait for `mainLoop()` to exit
 - The host then calls `m_worker.join()` to block until `run()` actually returns
 
-### Phase 4: Destruction (MUST be Worker Thread)
-- `m_module.reset()` calls `delete` on the `IWallpaperModule*`
-- Virtual dispatch to `Application::~Application()` (compiler-generated)
-- Members destroyed in **reverse declaration order**:
-  1. `Renderer` — `glDelete*` (context still active ✓)
-  2. StarSystem — trivial
-  3. `Window` — `glfwDestroyWindow()` (destroys window and GL context)
-  4. `GlfwContext` — `glfwTerminate()` (shuts down GLFW)
-- **All destruction calls must happen on the worker thread** where GLFW was initialized
+### Phase 4: Destruction (Worker Thread)
+- After `run()` returns, the worker lambda calls `m_module.reset()` to `delete` the `IWallpaperModule*`
+- Virtual dispatch to the module's destructor
+- Resources destroyed in **reverse declaration order** on the worker thread
+- This ensures rendering libraries with thread affinity requirements (OpenGL/GLFW, Direct3D, Vulkan) can safely tear down their resources on the same thread that initialized them
 
 ---
 
@@ -166,6 +160,7 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 | `"select"` | Custom dropdown | Value from `options` array |
 | `"color"` | ColorPicker (HSV, alpha, presets, eye dropper) | RGBA array `[r, g, b, a]` (0–1 range) |
 | `"color_list"` | Color grid with add/remove | Array of RGBA arrays |
+| `"file"` | Browse button + path display | String — full file path selected via native OS file dialog |
 | Object (no `"type"`) | Nested `SettingsControl` | Recursive settings group |
 
 ### Example Schema
@@ -198,7 +193,7 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 ## Common Pitfalls for Module Developers
 
 ### 1. Thread Affinity
-All GLFW and OpenGL calls must happen on the thread that called `glfwInit()`. Do not call GL functions from `stop()` (called from main thread) or from the destructor if destruction happens on the wrong thread.
+Many rendering libraries (OpenGL/GLFW, Direct3D 11, Vulkan) have thread affinity requirements — initialization, rendering, and teardown must all happen on the same thread. Do not call rendering functions from `stop()` (called from main thread). The host destroys the module on the worker thread (after `run()` returns), so the destructor runs on the correct thread. Plan your module's thread model accordingly.
 
 ### 2. `stop()` Must Be Non-Blocking
 `stop()` is called from the main thread. It must return quickly — typically just set an atomic flag. Do not join threads or call blocking functions in `stop()`.

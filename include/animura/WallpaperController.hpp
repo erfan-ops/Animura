@@ -24,13 +24,13 @@
  * All Q_INVOKABLE methods are called from the React frontend through the
  * NativeBridge COM object, which marshals calls to the Qt main thread.
  * WallpaperController itself lives on the Qt main thread; it spawns a
- * worker thread for module execution because GLFW/OpenGL require thread
- * affinity.
+ * worker thread for module execution because many rendering libraries
+ * require thread affinity.
  *
  * ## Threading Model
  * - **Main thread**: All public methods, `stop()`, `hwnd()`.
  * - **Worker thread**: `createModule()`, `run()`, `~IWallpaperModule()`,
- *   and ALL GLFW/OpenGL calls.
+ *   and all rendering library calls.
  *
  * @see NativeBridge for the COM bridge that exposes this controller to JS.
  * @see IWallpaperModule for the module ABI contract.
@@ -110,8 +110,8 @@ public:
      * 3. Signal the module to stop via `m_module->stop()` (atomic flag).
      * 4. Join the worker thread (blocks until the render loop exits).
      *    - The worker lambda destroys the module on the worker thread
-     *      after `run()` returns, ensuring GLFW teardown happens on the
-     *      correct thread.
+     *      after `run()` returns, ensuring rendering library teardown
+     *      happens on the correct thread.
      * 5. Set `m_running = false` and emit `runningModuleChanged()`.
      * 6. Restore the saved original Windows wallpaper image.
      *
@@ -173,8 +173,8 @@ private:
 
     /**
      * Active module instance. Owned by unique_ptr; the worker thread
-     * creates it and (after the fix) destroys it inside the worker lambda
-     * after `run()` returns.
+     * creates it and destroys it inside the worker lambda after
+     * `run()` returns, ensuring teardown on the correct thread.
      */
     std::unique_ptr<IWallpaperModule> m_module;
 
@@ -251,10 +251,11 @@ private:
      * The worker thread lambda:
      * 1. Reads settings JSON from disk.
      * 2. Calls `createModule(json)` to instantiate the module.
-     * 3. Attaches the module's GLFW window to the desktop WorkerW.
+     * 3. Attaches the module's window to the desktop WorkerW.
      * 4. Calls `m_module->run()` (blocking — enters the render loop).
      * 5. After `run()` returns: destroys `m_module` on the worker thread,
-     *    ensuring GLFW teardown happens on the correct thread.
+     *    ensuring rendering library teardown happens on the correct
+     *    thread.
      *
      * The original wallpaper path is saved before spawning the thread so
      * it can be restored on stop.

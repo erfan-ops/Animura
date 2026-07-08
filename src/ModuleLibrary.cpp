@@ -8,7 +8,7 @@
  *
  * ## Load Flags
  * `LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR` — Searches the DLL's own directory
- * first. This is how `glfw3.dll` (bundled alongside `module.dll`) is found.
+ * first. This is how other dll files (bundled alongside `module.dll`) are found.
  *
  * `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS` — Searches system directories.
  *

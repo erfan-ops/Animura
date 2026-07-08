@@ -12,12 +12,12 @@
  * - Public methods are called from NativeBridge (marshaled from WebView2
  *   threads via QMetaObject::invokeMethod with BlockingQueuedConnection).
  * - Module execution runs on a dedicated **worker thread** (m_worker)
- *   because GLFW/OpenGL require thread affinity for init, context,
- *   rendering, and teardown.
+ *   because many rendering libraries require thread affinity for
+ *   initialization, context management, rendering, and teardown.
  * - `stop()` sets an atomic flag from the main thread; the worker observes
  *   it and exits the render loop.
  * - Module destruction happens inside the worker lambda after `run()`
- *   returns, ensuring GLFW teardown on the correct thread.
+ *   returns, ensuring rendering library teardown on the correct thread.
  */
 
 #include "WallpaperController.hpp"
@@ -148,10 +148,12 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
     /**
      * Worker thread lambda — OWNs the module lifecycle.
      *
-     * This is the ONLY thread where GLFW/OpenGL operations are allowed.
-     * The module is created here, run here, and crucially DESTROYED here
-     * (after run() returns), ensuring glfwDestroyWindow() and
-     * glfwTerminate() execute on the same thread that called glfwInit().
+     * This is the ONLY thread where rendering library operations are
+     * allowed. The module is created here, run here, and crucially
+     * DESTROYED here (after run() returns), ensuring that any teardown
+     * with thread affinity requirements (e.g., GLFW's
+     * `glfwDestroyWindow()`/`glfwTerminate()`) executes on the same
+     * thread that performed initialization.
      */
     m_worker = std::thread([this, info]() {
         try {
@@ -181,9 +183,6 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
             // Blocking call: module runs until stop() is called from the main thread.
             m_module->run();
 
-            // Destroy the module on the WORKER thread.
-            // This is critical: ~Application() calls glDelete*, glfwDestroyWindow(),
-            // and glfwTerminate(), all of which require the GLFW thread's context.
             m_module.reset();
         }
         catch (const std::exception& e) {

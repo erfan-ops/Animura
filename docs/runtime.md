@@ -83,10 +83,10 @@ User clicks "Start" in SettingsPanel (React)
         │       ├─ Parse JSON
         │       ├─ Settings::Instance(json).loadFromJson(json)
         │       ├─ new Application(json)
-        │       │   ├─ GlfwContext → glfwInit()
-        │       │   ├─ Window → glfwCreateWindow(), glfwMakeContextCurrent()
-        │       │   ├─ gladLoadGLLoader()
-        │       │   ├─ Renderer → compile shaders, VAO, VBO, FBO
+        │       │   ├─ Initialize windowing library
+        │       │   ├─ Window → create window, make context current
+        │       │   ├─ Load OpenGL function pointers
+        │       │   ├─ Renderer → compile shaders, allocate buffers
         │       │   └─ StarSystem, etc.
         │       └─ return pointer
         │
@@ -96,6 +96,9 @@ User clicks "Start" in SettingsPanel (React)
         └─ m_module->run()
             └─ mainLoop()
                 └─ while(running) { update; render; swap; poll; tick; }
+
+        // After run() returns (stop() was called from main thread):
+        m_module.reset()   // Destroy module on WORKER thread
       })
 ```
 
@@ -118,38 +121,19 @@ User clicks "Stop" in header or SettingsPanel
    }
 
 3. if (m_worker.joinable() && this_thread != m_worker) {
-     m_worker.join()                        // Block until run() returns
+     m_worker.join()                        // Blocks until worker thread exits
    }
+   // During join, the worker thread lambda continues:
+   //   m_module->run() returns → m_module.reset() destroys module
+   //   → All rendering teardown runs on the correct thread
 
 4. m_running = false
    emit runningModuleChanged()              // → PostWebMessageAsJson → React
 
-5. m_module.reset()                         // ← ⚠️ CRASH LOCATION
-   └─ delete IWallpaperModule*
-      └─ ~Application()                     // Compiler-generated
-         ├─ ~Renderer()                     // glDelete* (NO GL CONTEXT!)
-         ├─ ~Window()                       // glfwDestroyWindow() (WRONG THREAD!)
-         └─ ~GlfwContext()                  // glfwTerminate() (WRONG THREAD!)
-
-6. restoreWallpaper()                       // SetWallpaper(m_originalWallpaper)
+5. restoreWallpaper()                       // SetWallpaper(m_originalWallpaper)
 ```
 
-> **THE CRASH:** Step 5 destroys GLFW/OpenGL resources on the **main thread**, but they were created on the **worker thread**. GLFW requires `glfwDestroyWindow()` and `glfwTerminate()` to be called from the same thread that called `glfwInit()`. The OpenGL context is only valid on the worker thread.
-
-### Correct Shutdown (after fix)
-
-```
-Worker thread lambda:
-  m_module->run()          // Returns when stop() sets running=false
-  m_module.reset()         // ← FIX: Destroy on WORKER thread
-     └─ All GLFW/GL teardown runs on correct thread ✓
-
-Main thread (stopWallpaper):
-  m_module->stop()         // Signal exit
-  m_worker.join()          // Wait for worker (which now includes destruction)
-  // m_module.reset()      // No-op — already null from worker thread
-  restoreWallpaper()
-```
+The worker thread owns module destruction. After `run()` returns, the lambda calls `m_module.reset()` on the **same thread** where the module was created. This ensures any rendering library with thread affinity requirements (OpenGL/GLFW, Direct3D, Vulkan) can safely tear down its resources.
 
 ---
 
@@ -205,28 +189,28 @@ QApplication::quit() triggered (tray menu)
 
 ---
 
-## Crash-Prone Lifecycle Points
+## Lifecycle Safety
 
-| Phase | Risk | Severity |
-|---|---|---|
-| Module creation | `Settings::Instance()` throws → `std::terminate()` | Medium |
-| Module execution | `running` flag checked once per frame — may delay stop by ~16ms | Low |
-| `m_module->stop()` | Called cross-thread — safe (atomic store) | None |
-| `m_module->hwnd()` | Called cross-thread — safe (returns const pointer) | None |
-| `m_worker.join()` | Blocks main thread until `run()` returns — correct | None |
-| **`m_module.reset()`** | **Cross-thread GLFW/GL destruction — CRASH** | **Critical** |
-| DLL unload | `FreeLibrary` happens after `m_module.reset()` — safe | None |
-| Wallpaper restore | Win32 `SetWallpaper` — independent of module state | None |
-| NativeBridge marshaling | Cross-thread with BQ connection — correct | None |
+| Phase | Why it's safe |
+|---|---|
+| Module creation | Runs on the worker thread — all rendering library init happens here |
+| Module execution | `running` flag checked once per frame, atomic load |
+| `m_module->stop()` | Called cross-thread — safe (atomic store) |
+| `m_module->hwnd()` | Called cross-thread — safe (returns const pointer) |
+| `m_worker.join()` | Blocks main thread until worker exits — correct synchronization |
+| `m_module.reset()` | **Called inside worker lambda after `run()` returns** — same thread as creation |
+| DLL unload | `FreeLibrary` happens after `m_module.reset()` — safe |
+| Wallpaper restore | Win32 `SetWallpaper` — independent of module state |
+| NativeBridge marshaling | Cross-thread with BQ connection — correct |
 
 ---
 
 ## Thread Lifecycle Rules
 
-1. **Worker thread is the GLFW thread.** All GLFW init, window creation, context management, rendering, and teardown happen here.
-2. **Main thread never touches GL.** The Qt main thread only calls `m_module->stop()` (atomic store) and `m_module->hwnd()` (read-only pointer return).
+1. **Worker thread is the rendering thread.** All rendering library init, window creation, context management, rendering, and teardown happen here.
+2. **Main thread never touches the render context.** The Qt main thread only calls `m_module->stop()` (atomic store) and `m_module->hwnd()` (read-only pointer return).
 3. **`stop()` does not block.** It signals the worker thread to exit, then returns immediately.
 4. **`join()` blocks the main thread** until the worker thread's `run()` returns.
-5. **Module destruction must be on the worker thread** — either inside the thread lambda after `run()` returns, or by ensuring the GL context is released and re-acquired on the destroying thread.
+5. **Module destruction happens on the worker thread** — the thread lambda calls `m_module.reset()` after `run()` returns, ensuring teardown on the same thread as creation.
 6. **DLL unload must happen after module destruction** — `ModuleLibrary::unload()` correctly occurs after `m_module.reset()`.
 7. **NativeBridge marshals to main thread** — WebView2 threads never touch C++ state directly.

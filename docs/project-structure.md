@@ -66,16 +66,17 @@ Animura/                              # Repository root
 │       └── types/
 │           └── index.ts              # TypeScript interfaces
 │
-├── modules/                          # Wallpaper plugin DLLs (8 modules)
+├── modules/                          # Wallpaper plugin DLLs
 │   ├── black-hole/
-│   │   ├── module.dll, module.json, schema.json, settings.json, preview.png, glfw3.dll
+│   │   ├── module.dll, module.json, schema.json, settings.json, preview.png
 │   ├── delaunay-flow/
 │   ├── eclipse-frame/
 │   ├── fireflies/
 │   ├── hypercube-harmony/
 │   ├── infinite-mirror/
 │   ├── shahr-flow/
-│   └── star-simulator/
+│   ├── star-simulator/
+│   └── video/
 │
 ├── resources/                        # Application resources
 │   ├── resources.qrc                 # Qt Resource Collection (icon only)
