@@ -1,7 +1,7 @@
 ﻿# Animura
 
-**Animura** is a modular live wallpaper engine for Windows built with **Qt 6 (QML + C++)**.  
-It loads wallpaper modules from DLLs that render real‑time graphics directly onto the desktop via OpenGL, with a JSON‑driven settings UI generated automatically from schema.
+**Animura** is a modular live wallpaper engine for Windows.  
+It loads wallpaper modules from DLLs that render real‑time animated graphics directly onto the desktop. Each module defines its own configurable settings, and the application's settings UI is generated dynamically for every module.
 
 Unlike traditional wallpaper changers, Animura modules can animate, react to mouse movement, and span across multiple monitors.
 
@@ -9,11 +9,10 @@ Unlike traditional wallpaper changers, Animura modules can animate, react to mou
 
 ## Features
 
-- **Live wallpaper modules** — dynamically loaded from DLLs, each running its own OpenGL render loop
+- **Live wallpaper modules** — dynamically loaded from DLLs, each running its own render loop
 - **Desktop integration** — attaches rendering windows directly behind desktop icons via `WorkerW`
-- **Dynamic settings system** — JSON Schema defines types, ranges, and allowed values; QML UI auto‑generated
+- **Dynamic settings system** — each module defines its own settings; the UI is generated automatically
 - **System tray support** — minimize to tray, restore, or quit
-- **Wallpaper safety** — original wallpaper saved and restored when modules stop
 - **Single-instance** — second launch notifies the running instance
 
 ---
@@ -21,32 +20,28 @@ Unlike traditional wallpaper changers, Animura modules can animate, react to mou
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────┐
-│                 Qt Main Thread                │
-│  ┌──────────┐  ┌───────────────────────────┐  │
-│  │ QML UI   │  │  WallpaperController      │  │
-│  │ GridView │  │  ┌──────────────────────┐ │  │
-│  │ Settings │  │  │ ModuleCatalog        │ │  │
-│  │ Panel    │  │  │ ModuleLibrary        │ │  │
-│  └──────────┘  │  │ m_module (unique_ptr)│ │  │
-│                │  └──────────┬───────────┘ │  │
-│                │             │ m_worker    │  │
-│                │  ┌──────────▼───────────┐ │  │
-│                │  │   Worker Thread      │ │  │
-│                │  │  IWallpaperModule    │ │  │
-│                │  │  ┌───────────────┐   │ │  │
-│                │  │  │  Application  │   │ │  │
-│                │  │  │  OpenGL+GLFW  │   │ │  │
-│                │  │  └───────────────┘   │ │  │
-│                │  └──────────────────────┘ │  │
-│                └───────────────────────────┘  │
-└───────────────────────────────────────────────┘
-                        │
-                        ▼
-┌──────────────────────────────────────────────┐
-│          WorkerW Desktop Layer               │
-│  Module renders live wallpaper via OpenGL    │
-└──────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│                  Qt Main Thread                   │
+│  ┌────────────────┐   ┌────────────────────────┐  │
+│  │ React frontend │   │  WallpaperController   │  │
+│  │ (WebView2)     │   │  ┌───────────────────┐ │  │
+│  │ Module Grid    │   │  │ ModuleCatalog     │ │  │
+│  │ Settings Panel │   │  │ ModuleLibrary     │ │  │
+│  └───────┬────────┘   │  │ m_module (unique) │ │  │
+│          │ COM bridge │  └────────┬──────────┘ │  │
+│  ┌───────▼────────┐   │           │ m_worker   │  │
+│  │  NativeBridge  │   │  ┌────────▼──────────┐ │  │
+│  │  (IDispatch)   │   │  │   Worker Thread   │ │  │
+│  └────────────────┘   │  │  IWallpaperModule │ │  │
+│                       │  └───────────────────┘ │  │
+│                       └────────────────────────┘  │
+└───────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────┐
+│           WorkerW Desktop Layer                  │
+│   Module renders live wallpaper content          │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
@@ -78,11 +73,10 @@ modules/
     ├── module.json        # { name, version, entry, schema, settings, preview }
     ├── schema.json        # JSON Schema → auto‑generated settings UI
     ├── settings.json      # User‑editable values
-    ├── preview.jpg        # Thumbnail in module grid
-    └── glfw3.dll          # GLFW runtime
+    └── preview.jpg        # Thumbnail in module grid
 ```
 
-Available modules: **black‑hole, delaunay‑flow, eclipse‑frame, fireflies, hypercube‑harmony, infinite‑mirror, shahr‑flow, star‑simulator.**
+Available modules: **black‑hole, delaunay‑flow, eclipse‑frame, fireflies, hypercube‑harmony, infinite‑mirror, shahr‑flow, star‑simulator, video.**
 
 ---
 
@@ -90,13 +84,14 @@ Available modules: **black‑hole, delaunay‑flow, eclipse‑frame, fireflies, 
 
 Schema‑to‑UI mapping:
 
-| Schema Type | QML Control |
+| Schema Type | Control |
 |---|---|
 | `"int"` / `"float"` | Slider (with min/max/step) |
 | `"bool"` | Switch toggle |
-| `"select"` | ComboBox (from `options` array) |
-| `"color"` | Color swatch → native QColorDialog |
+| `"select"` | Dropdown (from `options` array) |
+| `"color"` | Color picker (HSV, alpha, presets, eye dropper) |
 | `"color_list"` | Reorderable color grid |
+| `"file"` | Opens a file picker to select a file from the filesystem |
 | Nested object | Recursive settings group |
 
 Validation (`min`, `max`, `options`, `type`) runs before module start. See example schemas in each module's `schema.json`.
@@ -111,9 +106,9 @@ cmake --preset default
 cmake --build build --config Release
 ```
 
-- **Host:** C++20, Qt 6 QML, static CRT (`/MT`)
-- **Modules:** C++23, OpenGL + GLFW (vcpkg), static CRT (`/MT`)
-- Both use static CRT to prevent heap corruption across the DLL boundary
+- **Host:** C++20, Qt 6 (Widgets), WebView2, static CRT (`/MT`)
+- **Modules:** Compiled as DLLs, loaded at runtime by the host
+- Both host and modules use static CRT to prevent heap corruption across the DLL boundary
 
 ---
 
@@ -136,13 +131,12 @@ Full developer documentation in [`/docs`](docs/):
 
 ## Technology Stack
 
-- **C++20** (host) / **C++23** (modules)
-- **Qt 6.8** — QML, Qt Quick, Widgets, Network
-- **OpenGL 3.3** — Core profile rendering
-- **GLFW 3** — Window creation and input
-- **Win32 API** — Desktop integration (WorkerW), DWM, tray icon
-- **nlohmann/json** — JSON parsing
-- **CMake** — Build system
+- **C++20** — host application and module interface
+- **Qt 6.8** — Core, Gui, Network, Widgets
+- **Microsoft Edge WebView2** — embedded browser hosting the frontend
+- **React 18 + TypeScript + Vite 5** — frontend UI
+- **Win32 API** — desktop integration (WorkerW), DWM, tray icon
+- **CMake** — build system
 
 ---
 
