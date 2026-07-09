@@ -1,5 +1,7 @@
 {
+  "id": "hypercube-harmony",
   "name": "Hypercube Harmony",
+  "description": "Renders a rotating 4D hyper-cube",
   "version": "1.0",
   "entry": "module.dll",
   "schema": "schema.json",

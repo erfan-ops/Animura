@@ -1,5 +1,7 @@
 {
-  "name": "Inifinite Mirror",
+  "id": "infinite-mirror",
+  "name": "Infinite Mirror",
+  "description": "Renders a recursively nested border that changes color over time, like two mirrors facing each other",
   "version": "1.0",
   "entry": "module.dll",
   "schema": "schema.json",

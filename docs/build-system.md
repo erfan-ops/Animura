@@ -37,6 +37,7 @@ set(ANIMURA_SOURCES
     src/WallpaperController.cpp
     src/NativeBridge.cpp
     src/WebView2Host.cpp
+    src/ZipExtractor.cpp
 )
 ```
 
@@ -62,6 +63,7 @@ target_link_libraries(Animura PRIVATE
     Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets
     Ole32
     unofficial::webview2::webview2
+    MINIZIP::minizip-ng
     $<$<CONFIG:Debug>:wallpaper_host_static_mtd>
     $<$<NOT:$<CONFIG:Debug>>:wallpaper_host_static_mt>
 )
@@ -69,6 +71,7 @@ target_link_libraries(Animura PRIVATE
 - `Qt6::Core, Gui, Network, Widgets` — application shell, tray, single-instance
 - `Ole32` — COM for desktop wallpaper operations
 - `unofficial::webview2::webview2` — Edge WebView2 for hosting the React UI
+- `MINIZIP::minizip-ng` — ZIP reading and extraction (module installation)
 - `wallpaper_host_static_mt(d)` — static library in `lib/` providing `desktop_utils.hpp`
 
 ### Compiler Options (MSVC)
@@ -221,6 +224,7 @@ The host application has the following dependencies. Modules are independent and
 | --- | --- |
 | Qt 6.8 (Core/Gui/Network/Widgets) | System install (`C:/Qt/6.8.2/msvc2022_64`) |
 | WebView2 SDK | vcpkg (`unofficial-webview2`) |
+| minizip-ng 4.x | vcpkg (`MINIZIP::minizip-ng`, static CRT triplet) |
 | wallpaper_host (static lib) | `lib/` directory |
 | React / TypeScript / Vite | npm (`frontend/package.json`) |
 | nlohmann/json | Bundled headers (`include/nlohmann/json.hpp`) |

@@ -150,6 +150,22 @@ export async function pickFile(filter?: string): Promise<string> {
 }
 
 /**
+ * Opens a native file dialog for *.zip modules, installs the selected
+ * package at runtime, and refreshes the module catalog — no restart needed.
+ *
+ * The C++ side handles the full workflow: file dialog, ZIP validation,
+ * extraction, catalog update, and frontend notification.
+ *
+ * @returns "OK" on success, or an error string prefixed with "ERROR:" on failure.
+ *          Returns an empty string if the user cancelled the file dialog.
+ */
+export async function installModule(): Promise<string> {
+  const bridge = getBridge();
+  if (!bridge) return 'ERROR: Native bridge not available.';
+  return await bridge.InstallModule();
+}
+
+/**
  * Subscribes to C++ → JS web messages.
  *
  * The C++ side calls `PostWebMessageAsJson` with messages like:

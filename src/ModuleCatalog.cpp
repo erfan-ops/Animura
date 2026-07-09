@@ -60,13 +60,14 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
 
         // Validate all 6 required fields are present.
         std::string missing;
-        if (!hasRequiredFields(metaJson, { "name","version","entry","schema","settings","preview" }, missing)) {
+        if (!hasRequiredFields(metaJson, { "id","name","version","entry","schema","settings","preview" }, missing)) {
             std::cout << "Missing property \"" << missing << "\" in \"" << moduleJsonPath << "\"\n";
             continue;
         }
 
         ModuleInfo info{
             moduleDir.path(),
+            metaJson["id"],
             metaJson["name"],
             metaJson["version"],
             metaJson["entry"],
@@ -87,4 +88,15 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
 
         m_modules.push_back(info);
     }
+}
+
+bool ModuleCatalog::hasModuleId(const std::string& id) const {
+    for (const auto& m : m_modules) {
+        if (m.id == id) return true;
+    }
+    return false;
+}
+
+void ModuleCatalog::addModule(const ModuleInfo& info) {
+    m_modules.push_back(info);
 }

@@ -85,11 +85,22 @@ Returns `{schema, settings}` for the settings panel React component.
 #### `applySettings(int moduleIndex, QJsonObject)`
 Writes settings JSON to disk using `QSaveFile` (atomic write).
 
+#### `installModuleFromPath(const QString& zipPath) → QString`
+Installs a module from a ZIP package at runtime:
+1. Validates the ZIP (readable, `module.json` at root, valid `id`, no duplicate).
+2. Reads `module.json` directly from the ZIP into memory — no temp extraction.
+3. Extracts the full ZIP to `modules/<id>/` using minizip-ng.
+4. Constructs a `ModuleInfo` and adds it to the catalog.
+5. Emits `modulesChanged()` so the frontend refreshes.
+
+Returns an empty string on success, or a human-readable error message on failure. Cleans up partially extracted files on failure.
+
 ### Signals
 
 | Signal | Emitted when | Connected to |
 |---|---|---|
 | `runningModuleChanged()` | Module starts or stops | WebView2 → `PostWebMessageAsJson` → React updates UI |
+| `modulesChanged()` | Module catalog is updated (e.g., runtime install) | WebView2 → `PostWebMessageAsJson` → React refreshes grid |
 
 ### Private Helpers
 
@@ -151,6 +162,8 @@ COM `IDispatch` implementation registered with WebView2 via `AddHostObjectToScri
 | 4 | `StopWallpaper` | void |
 | 5 | `LoadSettingsUI(idx)` | BSTR (JSON `{schema, settings}`) |
 | 6 | `ApplySettings(idx, json)` | void |
+| 7 | `PickFile(filter?)` | BSTR (file path or empty) |
+| 8 | `InstallModule` | BSTR (`"OK"` on success, `"ERROR:..."` on failure) |
 
 **Important:** All return values are `BSTR` (COM strings). The JS bridge wrapper in `frontend/src/bridge/native.ts` handles type coercion.
 
@@ -167,6 +180,7 @@ Scans `./modules/` for subdirectories containing `module.json` files. Each valid
 ```cpp
 struct ModuleInfo {
     std::filesystem::path basePath;
+    std::string id;             // from module.json — unique module identifier
     std::string name;           // from module.json
     std::string version;        // from module.json
     std::filesystem::path entryDll;     // relative: "module.dll"
@@ -179,7 +193,16 @@ struct ModuleInfo {
 };
 ```
 
+### ModuleCatalog Methods
+
+| Method | Purpose |
+|---|---|
+| `modules()` | Returns const reference to the discovered module list |
+| `hasModuleId(id)` | Checks whether a module `id` is already in the catalog |
+| `addModule(info)` | Adds a validated ModuleInfo to the catalog (runtime install) |
+
 ### Required JSON fields in `module.json`
+- `id` — unique module identifier (used as installation folder name)
 - `name` — display name
 - `version` — semantic version string
 - `entry` — DLL filename (e.g. `"module.dll"`)

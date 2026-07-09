@@ -190,6 +190,94 @@ User-facing settings values that conform to `schema.json`. Written by the host w
 
 ---
 
+## Module Distribution & Installation
+
+Modules are distributed as **ZIP packages** and can be installed at runtime without restarting Animura.
+
+### Package Format
+
+```text
+MyModule.zip
+
+├── module.json
+├── module.dll
+├── settings.json
+├── preview.png
+└── ... (other bundled files)
+```
+
+**Requirements:**
+- `module.json` must exist at the **ZIP root** (not inside a subdirectory).
+- The package must contain a valid `"id"` field in `module.json` — this becomes the installation folder name.
+- All standard `module.json` fields (`id`, `name`, `version`, `entry`, `schema`, `settings`, `preview`) are required.
+
+### Installation Flow
+
+```
+User clicks "Add Module"
+  → Native file dialog (filter: *.zip)
+  → User selects ZIP
+
+Validate:
+  ├─ ZIP is readable
+  ├─ module.json exists at ZIP root
+  ├─ JSON is valid
+  ├─ "id" exists and is not empty
+  ├─ "id" is not already installed (duplicate check)
+  └─ No unsafe entry paths (.. traversal, absolute paths)
+
+Extract:
+  └─ All files extracted to modules/<module-id>/
+
+Update:
+  ├─ ModuleCatalog gets the new ModuleInfo
+  ├─ modulesChanged signal emitted
+  └─ Frontend module grid refreshes automatically
+```
+
+Installation happens entirely at runtime — **no restart required**.
+
+### Resulting Directory Structure
+
+```
+Animura.exe
+
+modules/
+├── black-hole/
+│   └── ...
+└── my-module-id/
+    ├── module.json
+    ├── settings.json
+    ├── module.dll
+    ├── preview.png
+    └── ...
+```
+
+The folder name is the module's `"id"` from `module.json`.
+
+### Validation Rules
+
+| Check | Error if |
+|---|---|
+| ZIP readable | File cannot be opened or is not a valid ZIP |
+| `module.json` exists | Entry not found in ZIP |
+| `module.json` at root | Entry is inside a subdirectory |
+| Valid JSON | Parsing fails |
+| `"id"` field | Missing or empty |
+| Duplicate ID | Another installed module already has this ID |
+| All required fields | Any of `id`, `name`, `version`, `entry`, `schema`, `settings`, `preview` missing |
+| Referenced files | DLL, schema, settings, or preview file missing after extraction |
+| Safe entry paths | Entry name contains `..` or is an absolute path |
+
+### Implementation
+
+The installer uses:
+- **minizip-ng** for synchronous, deterministic ZIP I/O.
+- **ZipExtractor** for entry inspection (`HasEntry`, `ReadFile`), path-traversal protection, and extraction (`ExtractAll`).
+- `module.json` is read **directly from the ZIP into memory** — no temp file extraction required.
+- Extraction is fully synchronous and checked for errors; it does not use Shell COM, polling, or `Sleep()`.
+
+---
 ## Common Pitfalls for Module Developers
 
 ### 1. Thread Affinity

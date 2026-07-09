@@ -113,10 +113,16 @@ export interface NativeBridge {
   ApplySettings(moduleIndex: number, settingsJson: string): Promise<void>;
   /** Opens a native file dialog and returns the selected file's full path. */
   PickFile(filter?: string): Promise<string>;
+  /**
+   * Opens a native file dialog for *.zip files, validates the package,
+   * extracts it to modules/<id>/, and refreshes the module catalog.
+   * Returns "OK" on success, or "ERROR:<message>" on failure.
+   */
+  InstallModule(): Promise<string>;
 }
 
-/** Shape of a C++ → JS web message (e.g., runningModuleChanged). */
+/** Shape of a C++ → JS web message. */
 export interface BackendMessage {
-  type: 'runningModuleChanged';
-  moduleId: number;
+  type: 'runningModuleChanged' | 'modulesChanged';
+  moduleId?: number;
 }

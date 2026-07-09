@@ -30,7 +30,7 @@ import { useNotifications } from './hooks/useNotifications';
 import type { ModuleInfo } from './types';
 
 const App: React.FC = () => {
-  const { modules, loading } = useModules();
+  const { modules, loading, refresh: refreshModules } = useModules();
   const { runningModuleId, refresh } = useRunningModuleId();
   const { notifications, show, dismiss } = useNotifications();
 
@@ -66,6 +66,23 @@ const App: React.FC = () => {
     await toggle();
   }, [toggle]);
 
+  /** Opens the module installer (native file dialog → ZIP validation → catalog refresh). */
+  const handleInstallModule = React.useCallback(async () => {
+    const result = await bridge.installModule();
+    if (!result) {
+      // User cancelled — nothing to do.
+      return;
+    }
+    if (result === 'OK') {
+      await refreshModules();
+      show('Module installed successfully', 'success');
+    } else {
+      // Strip the "ERROR:" prefix for display.
+      const msg = result.startsWith('ERROR:') ? result.slice(6) : result;
+      show(msg, 'error');
+    }
+  }, [refreshModules, show]);
+
   /** Stops the wallpaper from the header button. */
   const handleStop = React.useCallback(async () => {
     await bridge.stopWallpaper();
@@ -95,6 +112,7 @@ const App: React.FC = () => {
           modules={modules}
           loading={loading}
           onModuleClick={handleModuleClick}
+          onInstallModule={handleInstallModule}
         />
 
         <SettingsPanel

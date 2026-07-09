@@ -23,6 +23,7 @@
 #include "WallpaperController.hpp"
 #include "JsonUtils.hpp"
 #include "SettingsSchemaValidator.hpp"
+#include "ZipExtractor.hpp"
 
 #include <filesystem>
 
@@ -288,4 +289,150 @@ void WallpaperController::applySettings(int moduleIndex, QJsonObject settings) {
 
     if (!file.commit())
         qWarning() << "Failed to save settings:" << file.errorString();
+}
+
+// ── Runtime Module Installation ──
+
+QString WallpaperController::installModuleFromPath(const QString& zipPath) {
+    if (zipPath.isEmpty()) {
+        return {};
+    }
+
+    std::filesystem::path zipFsPath(
+        zipPath.toStdWString());
+    std::string err;
+
+    // ── Step 1 & 2: Verify module.json exists at the ZIP root ──
+    if (!ZipExtractor::HasEntry(zipFsPath, "module.json")) {
+        return QStringLiteral(
+            "Invalid module package: module.json not found at the ZIP root.");
+    }
+
+    // Verify module.json is at the root (not in a subdirectory).
+    std::vector<std::string> rootEntries;
+    if (!ZipExtractor::ListRootEntries(zipFsPath, rootEntries, err)) {
+        return QString::fromStdString(
+            "Failed to read ZIP: " + err);
+    }
+    bool hasModuleJson = false;
+    for (const auto& entry : rootEntries) {
+        if (entry == "module.json") {
+            hasModuleJson = true;
+            break;
+        }
+    }
+    if (!hasModuleJson) {
+        return QStringLiteral(
+            "Invalid module package: module.json must be at the ZIP root, not in a subdirectory.");
+    }
+
+    // ── Step 3: Read module.json directly from the ZIP into memory ──
+    auto moduleJsonContent = ZipExtractor::ReadFile(zipFsPath, "module.json");
+    if (!moduleJsonContent.has_value()) {
+        return QStringLiteral(
+            "Failed to read module.json from ZIP.");
+    }
+
+    nlohmann::json metaJson;
+    try {
+        metaJson = nlohmann::json::parse(*moduleJsonContent);
+    } catch (const std::exception& e) {
+        return QString::fromStdString(
+            std::string("Failed to parse module.json: ") + e.what());
+    }
+
+    // Validate 'id' field.
+    if (!metaJson.contains("id") || !metaJson["id"].is_string()) {
+        return QStringLiteral(
+            "Invalid module.json: missing or invalid \"id\" field.");
+    }
+
+    std::string moduleId = metaJson["id"].get<std::string>();
+    if (moduleId.empty()) {
+        return QStringLiteral(
+            "Invalid module.json: \"id\" must not be empty.");
+    }
+
+    // Validate 'name' field (needed for UI display).
+    if (!metaJson.contains("name") || !metaJson["name"].is_string()) {
+        return QStringLiteral(
+            "Invalid module.json: missing or invalid \"name\" field.");
+    }
+
+    // ── Step 4: Check for duplicate module ID ──
+    if (m_catalog.hasModuleId(moduleId)) {
+        return QString::fromStdString(
+            "A module with id \"" + moduleId + "\" is already installed.");
+    }
+
+    // ── Step 5: Extract the full ZIP to modules/<id>/ ──
+    // Resolve destination relative to the executable's location.
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    std::filesystem::path modulesDir(exePath);
+    modulesDir = modulesDir.parent_path() / "modules" / moduleId;
+
+    if (!ZipExtractor::ExtractAll(zipFsPath, modulesDir, err)) {
+        // Clean up partial extraction.
+        std::error_code ec;
+        std::filesystem::remove_all(modulesDir, ec);
+        return QString::fromStdString(
+            "Failed to extract module: " + err);
+    }
+
+    // ── Step 6: Build ModuleInfo and update catalog ──
+    // Read the extracted module.json again (now at its final location)
+    // to get all required fields for ModuleInfo.
+    nlohmann::json finalMetaJson;
+    std::filesystem::path finalJsonPath = modulesDir / "module.json";
+    if (!JsonUtils::readJsonFile(finalJsonPath, finalMetaJson, &err)) {
+        // Clean up — module.json must be readable after extraction.
+        std::error_code ec;
+        std::filesystem::remove_all(modulesDir, ec);
+        return QString::fromStdString(
+            "Failed to read extracted module.json: " + err);
+    }
+
+    // Validate all required ModuleInfo fields.
+    static const std::vector<std::string> kRequiredFields = {
+        "id", "name", "version", "entry", "schema", "settings", "preview"
+    };
+    for (const auto& field : kRequiredFields) {
+        if (!finalMetaJson.contains(field)) {
+            std::error_code ec;
+            std::filesystem::remove_all(modulesDir, ec);
+            return QString::fromStdString(
+                "Invalid module.json: missing required field \"" + field + "\".");
+        }
+    }
+
+    ModuleInfo info{
+        modulesDir,
+        finalMetaJson["id"].get<std::string>(),
+        finalMetaJson["name"].get<std::string>(),
+        finalMetaJson["version"].get<std::string>(),
+        finalMetaJson["entry"].get<std::string>(),
+        finalMetaJson["schema"].get<std::string>(),
+        finalMetaJson["settings"].get<std::string>(),
+        finalMetaJson["preview"].get<std::string>()
+    };
+
+    // Verify the referenced files actually exist.
+    if (!std::filesystem::exists(info.entryPath())
+        || !std::filesystem::exists(info.schemaPath())
+        || !std::filesystem::exists(info.settingsPath())
+        || !std::filesystem::exists(info.previewPathFs())) {
+        std::error_code ec;
+        std::filesystem::remove_all(modulesDir, ec);
+        return QStringLiteral(
+            "Installed module is missing one or more required files.");
+    }
+
+    m_catalog.addModule(info);
+
+    // ── Step 7: Notify the frontend ──
+    emit modulesChanged();
+
+    qInfo() << "Module installed:" << QString::fromStdString(moduleId);
+    return {}; // Success — empty string.
 }

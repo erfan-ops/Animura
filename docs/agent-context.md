@@ -39,6 +39,7 @@ Module sources live separately at `E:/coding/C/live-wallpaper-modules/<name>/`.
 | `ModuleCatalog` | `src/ModuleCatalog.cpp` | Scans `/modules` for `module.json` files |
 | `ModuleLibrary` | `src/ModuleLibrary.cpp` | Wraps `LoadLibraryEx`/`FreeLibrary`/`GetProcAddress` |
 | `IWallpaperModule` | `include/animura/IWallpaperModule.hpp` | ABI interface: `run()`, `stop()`, `hwnd()`, virtual dtor |
+| `ZipExtractor` | `src/ZipExtractor.cpp` | ZIP read & extract via minizip-ng (module installation) |
 | `SettingsSchemaValidator` | `src/SettingsSchemaValidator.cpp` | Recursive JSON validation against schema |
 
 ### Critical Architecture Rules
@@ -146,4 +147,11 @@ User clicks Stop:
   → m_worker.join() [waits for run() to return]
   → m_module.reset() [destroys module]
   → restoreWallpaper()
+
+User clicks Add Module:
+  → NativeBridge.InstallModule() [COM → Qt main thread]
+  → QFileDialog → WallpaperController::installModuleFromPath(path)
+  → ZipExtractor validates, reads module.json in-memory, extracts
+  → ModuleCatalog::addModule() → emit modulesChanged()
+  → React auto-refreshes module grid
 ```

@@ -173,6 +173,18 @@ int main(int argc, char* argv[]) {
             }
         );
 
+        // Bridge: forward catalog changes (e.g., runtime module install) to React.
+        // The frontend refreshes the module grid when this message arrives.
+        QObject::connect(
+            &wallpaperController, &WallpaperController::modulesChanged,
+            &webViewHost, [&webViewHost]() {
+                QJsonObject msg;
+                msg["type"] = QStringLiteral("modulesChanged");
+                QJsonDocument doc(msg);
+                webViewHost.postMessageToJs(doc.toJson(QJsonDocument::Compact));
+            }
+        );
+
         // ── Single-instance server ──
         // Listens for "show" messages from secondary launch attempts.
         QLocalServer singleInstanceServer;

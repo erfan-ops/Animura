@@ -54,6 +54,27 @@ public:
      */
     const std::vector<ModuleInfo>& modules() const { return m_modules; }
 
+    /**
+     * @brief Checks whether a module with the given `id` is already
+     *        present in the catalog.
+     *
+     * Used by the module installer to reject duplicate installations.
+     *
+     * @param id The module `id` field from `module.json`.
+     * @return true if a module with this id exists.
+     */
+    bool hasModuleId(const std::string& id) const;
+
+    /**
+     * @brief Adds a validated ModuleInfo to the catalog.
+     *
+     * Does NOT re-scan the disk — the caller is responsible for ensuring
+     * the module files already exist in the expected directory.
+     *
+     * @param info A fully-populated ModuleInfo for the new module.
+     */
+    void addModule(const ModuleInfo& info);
+
 private:
     /** Validated module metadata, populated by scanModules(). */
     std::vector<ModuleInfo> m_modules;

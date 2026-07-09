@@ -1,5 +1,7 @@
 {
+  "id": "star-simulator",
   "name": "Star Simulator",
+  "description": "Renders dots that connect to the mouse cursor with distance-based lines",
   "version": "1.0",
   "entry": "module.dll",
   "schema": "schema.json",

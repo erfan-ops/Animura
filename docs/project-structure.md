@@ -12,11 +12,12 @@ Animura/                              # Repository root
 │
 ├── src/                              # Host C++ sources
 │   ├── main.cpp                      # Entry point, single-instance, tray icon
-│   ├── WallpaperController.cpp       # Module lifecycle orchestrator
+│   ├── WallpaperController.cpp       # Module lifecycle + runtime installation
 │   ├── WebView2Host.cpp              # WebView2 control in QWidget, navigation
 │   ├── NativeBridge.cpp              # COM IDispatch — JS ↔ C++ bridge
-│   ├── ModuleCatalog.cpp             # Module discovery from /modules
+│   ├── ModuleCatalog.cpp             # Module discovery + runtime additions
 │   ├── ModuleLibrary.cpp             # DLL loading wrapper
+│   ├── ZipExtractor.cpp              # ZIP inspection & extraction (minizip-ng)
 │   ├── SettingsSchemaValidator.cpp   # JSON schema validation
 │   └── JsonUtils.cpp                 # JSON file I/O helper
 │
@@ -27,8 +28,9 @@ Animura/                              # Repository root
 │   │   ├── WebView2Host.hpp          # WebView2 host (Q_OBJECT)
 │   │   ├── NativeBridge.hpp          # COM IDispatch bridge
 │   │   ├── ModuleCatalog.hpp         # Module discovery result
-│   │   ├── ModuleInfo.hpp            # Per-module metadata struct
+│   │   ├── ModuleInfo.hpp            # Per-module metadata struct (includes id)
 │   │   ├── ModuleLibrary.hpp         # DLL loader + CreateModuleFn typedef
+│   │   ├── ZipExtractor.hpp          # ZIP utility (minizip-ng backed)
 │   │   ├── SettingsSchemaValidator.hpp
 │   │   ├── JsonUtils.hpp
 │   │   └── resource.h                # Windows resource IDs

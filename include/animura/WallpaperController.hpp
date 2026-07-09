@@ -154,6 +154,29 @@ public:
      */
     Q_INVOKABLE void applySettings(int moduleIndex, QJsonObject settings);
 
+    /**
+     * @brief Installs a wallpaper module from a ZIP package at the given path.
+     *
+     * The file dialog is opened by NativeBridge (which has the QWidget parent
+     * for proper window stacking). This method receives the selected path and
+     * performs the installation.
+     *
+     * ## Installation Workflow
+     * 1. Opens the ZIP — validates that `module.json` exists at the root.
+     * 2. Extracts `module.json` to a temp location and parses the `id`.
+     * 3. Rejects if the `id` is missing, empty, or already in the catalog.
+     * 4. Extracts the full ZIP to `modules/<id>/`.
+     * 5. Constructs a ModuleInfo and adds it to the catalog.
+     * 6. Emits `modulesChanged()` so the frontend refreshes.
+     *
+     * If any step fails, cleans up any partially extracted files and
+     * returns the error message. On success, returns an empty string.
+     *
+     * @param zipPath Full path to the `.zip` package.
+     * @return Empty string on success, or a human-readable error message.
+     */
+    Q_INVOKABLE QString installModuleFromPath(const QString& zipPath);
+
 signals:
     /**
      * @brief Emitted when the running state changes (module started or
@@ -163,6 +186,15 @@ signals:
      * via WebView2's `PostWebMessageAsJson`.
      */
     void runningModuleChanged();
+
+    /**
+     * @brief Emitted when the module catalog changes (e.g., a new module
+     *        was installed at runtime).
+     *
+     * Connected in main.cpp to forward catalog updates to the React
+     * frontend so the module grid refreshes automatically.
+     */
+    void modulesChanged();
 
 private:
     /** Discovered module list from scanning `./modules/`. */

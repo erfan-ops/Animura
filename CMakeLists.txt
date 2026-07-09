@@ -30,12 +30,20 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 
 # ── vcpkg integration (for WebView2 SDK) ──
 # Toolchain file should be set via CMakePresets.json "toolchainFile" field
+# The static CRT triplet is listed first so that minizip-ng (which needs
+# /MT to match the project) is resolved from the static build.
+if(EXISTS "E:/coding/C/vcpkg/vcpkg/installed/x64-windows-static")
+    list(APPEND CMAKE_PREFIX_PATH "E:/coding/C/vcpkg/vcpkg/installed/x64-windows-static")
+endif()
 if(EXISTS "E:/coding/C/vcpkg/vcpkg/installed/x64-windows")
     list(APPEND CMAKE_PREFIX_PATH "E:/coding/C/vcpkg/vcpkg/installed/x64-windows")
 endif()
 
 # ── WebView2 SDK ──
 find_package(unofficial-webview2 CONFIG REQUIRED)
+
+# ── minizip-ng ──
+find_package(minizip-ng CONFIG REQUIRED)
 
 # ── wallpaper_host static library ──
 set(ANIMURA_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH
@@ -51,6 +59,7 @@ set(ANIMURA_SOURCES
     src/WallpaperController.cpp
     src/NativeBridge.cpp
     src/WebView2Host.cpp
+    src/ZipExtractor.cpp
 )
 
 # ── MOC headers (Qt meta-object compiler — Q_OBJECT classes) ──
@@ -90,6 +99,7 @@ target_link_libraries(Animura PRIVATE
     Ole32
     $<$<CONFIG:Debug>:wallpaper_host_static_mtd>
     $<$<NOT:$<CONFIG:Debug>>:wallpaper_host_static_mt>
+    MINIZIP::minizip-ng
 )
 
 # Link WebView2

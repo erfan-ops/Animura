@@ -57,11 +57,12 @@ The Qt-based executable. Manages module discovery, loading, lifecycle, and hosts
 | Component | Responsibility | Key Files |
 |---|---|---|
 | `main.cpp` | Entry point, single-instance lock, tray icon, creates WebView2Host | `src/main.cpp` |
-| `WallpaperController` | Central orchestrator: load/start/stop modules, manage worker thread | `src/WallpaperController.cpp`, `.hpp` |
+| `WallpaperController` | Central orchestrator: load/start/stop modules, install modules, manage worker thread | `src/WallpaperController.cpp`, `.hpp` |
 | `WebView2Host` | Creates a QWidget window, initializes WebView2, registers NativeBridge, navigates to frontend | `src/WebView2Host.cpp`, `.hpp` |
 | `NativeBridge` | COM `IDispatch` object exposed to JS via `AddHostObjectToScript`. Marshals all calls to Qt main thread | `src/NativeBridge.cpp`, `.hpp` |
-| `ModuleCatalog` | Scans `./modules/` directory, parses `module.json` metadata | `src/ModuleCatalog.cpp`, `.hpp` |
+| `ModuleCatalog` | Scans `./modules/` directory, parses `module.json` metadata, supports runtime additions | `src/ModuleCatalog.cpp`, `.hpp` |
 | `ModuleLibrary` | Wraps `LoadLibraryEx`/`FreeLibrary`, resolves `createModule` entry point | `src/ModuleLibrary.cpp`, `.hpp` |
+| `ZipExtractor` | ZIP inspection and extraction backed by minizip-ng — no Shell COM, fully synchronous | `src/ZipExtractor.cpp`, `include/animura/ZipExtractor.hpp` |
 | `SettingsSchemaValidator` | Validates module settings JSON against its schema before loading | `src/SettingsSchemaValidator.cpp`, `.hpp` |
 | `JsonUtils` | Thin helper for reading JSON files with error reporting | `src/JsonUtils.cpp`, `.hpp` |
 
@@ -146,6 +147,8 @@ C++ pushes events via `PostWebMessageAsJson`:
 | 4 | `StopWallpaper` | void |
 | 5 | `LoadSettingsUI(idx)` | BSTR (JSON {schema, settings}) |
 | 6 | `ApplySettings(idx, json)` | void |
+| 7 | `PickFile(filter?)` | BSTR (file path or empty) |
+| 8 | `InstallModule` | BSTR ("OK" or "ERROR:...") |
 
 ## Data Flow
 
@@ -179,6 +182,18 @@ User clicks "Stop"
   → m_worker.join()                          [waits for render loop exit]
   → m_module.reset()                         [destroys module]
   → restoreWallpaper()
+
+User clicks "Add Module"
+  → NativeBridge.InstallModule()              [COM → Qt main thread]
+  → QFileDialog (filter: *.zip)
+  → WallpaperController::installModuleFromPath(path)
+    → ZipExtractor::HasEntry(zip, "module.json")    [verify root-level]
+    → ZipExtractor::ReadFile(zip, "module.json")    [in-memory parse]
+    → validate id, name, uniqueness
+    → ZipExtractor::ExtractAll(zip, modules/<id>/)  [synchronous]
+    → ModuleCatalog::addModule(info)
+    → emit modulesChanged()                   [→ PostWebMessageAsJson]
+  → React: refreshModules() + toast notification
 ```
 
 ## Threading Model

@@ -15,7 +15,8 @@
  * | 4      | `StopWallpaper`      | `stopWallpaper()`          |
  * | 5      | `LoadSettingsUI(idx)`| `loadSettingsUI(int)`      |
  * | 6      | `ApplySettings(i,j)` | `applySettings(int, json)` |
- * | 7      | `PickFile`           | `pickFile()`             |
+ * | 7      | `PickFile`           | `pickFile(filter?)`       |
+ * | 8      | `InstallModule`      | `installModule()`         |
  *
  * ## Thread Safety
  * WebView2 calls `Invoke()` on arbitrary COM threads. All method
@@ -56,6 +57,7 @@ enum BridgeDispId {
     DISPID_LOAD_SETTINGS_UI     = 5,
     DISPID_APPLY_SETTINGS       = 6,
     DISPID_PICK_FILE             = 7,
+    DISPID_INSTALL_MODULE        = 8,
 };
 
 // ── Name → DISPID map ──
@@ -67,6 +69,7 @@ static const std::pair<const wchar_t*, DISPID> kMethodMap[] = {
     { L"LoadSettingsUI",     DISPID_LOAD_SETTINGS_UI },
     { L"ApplySettings",      DISPID_APPLY_SETTINGS },
     { L"PickFile",           DISPID_PICK_FILE },
+    { L"InstallModule",      DISPID_INSTALL_MODULE },
 };
 
 // ── Helper: convert QJsonObject to std::string ──
@@ -234,6 +237,30 @@ HRESULT NativeBridge::Invoke(
                     filter);
                 if (!path.isEmpty()) {
                     result = path.toStdString();
+                }
+                break;
+            }
+
+            case DISPID_INSTALL_MODULE: {
+                // Open a native file dialog for *.zip on the Qt main thread.
+                // NativeBridge has m_parentWindow for proper dialog parenting.
+                qDebug() << "starting to install module";
+                QString zipPath = QFileDialog::getOpenFileName(
+                    m_parentWindow,
+                    QStringLiteral("Select Module Package"),
+                    QString(),
+                    QStringLiteral("ZIP files (*.zip)"));
+                qDebug() << "file selected" << zipPath;
+                if (zipPath.isEmpty()) {
+                    break; // User cancelled — return empty result.
+                }
+                qDebug() << "installing module now";
+                // Delegate to the controller for validation + extraction.
+                QString errMsg = m_controller->installModuleFromPath(zipPath);
+                if (errMsg.isEmpty()) {
+                    result = "OK";
+                } else {
+                    result = "ERROR:" + errMsg.toStdString();
                 }
                 break;
             }

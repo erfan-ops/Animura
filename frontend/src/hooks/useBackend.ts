@@ -17,22 +17,38 @@ import type { ModuleInfo, SettingsUI } from '../types';
 import * as bridge from '../bridge/native';
 
 /**
- * Fetches the list of available wallpaper modules on mount.
+ * Fetches the list of available wallpaper modules on mount, and refreshes
+ * when the C++ backend emits a `modulesChanged` web message.
  *
- * @returns `{ modules, loading }` — the module array and whether the initial fetch is in progress.
+ * @returns `{ modules, loading, refresh }` — the module array, whether the
+ *          initial fetch is in progress, and a function to force a refresh.
  */
 export function useModules() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const list = await bridge.getModulesList();
+    setModules(list);
+  }, []);
 
   useEffect(() => {
     bridge.getModulesList().then((list) => {
       setModules(list);
       setLoading(false);
     });
+
+    // Listen for catalog changes pushed from C++ (e.g., after runtime install).
+    const unsub = bridge.onBackendMessage((msg) => {
+      if (msg.type === 'modulesChanged') {
+        bridge.getModulesList().then(setModules);
+      }
+    });
+
+    return unsub;
   }, []);
 
-  return { modules, loading };
+  return { modules, loading, refresh };
 }
 
 /**

@@ -66,7 +66,7 @@ constexpr const wchar_t* kDevUrl = L"http://localhost:5173";
 constexpr const wchar_t* kVirtualHost = L"animura.app";
 
 /** Default window width in logical pixels. */
-constexpr int kDefaultWidth = 1280;
+constexpr int kDefaultWidth = 1400;
 
 /** Default window height in logical pixels. */
 constexpr int kDefaultHeight = 720;

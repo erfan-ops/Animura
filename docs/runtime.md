@@ -137,6 +137,43 @@ The worker thread owns module destruction. After `run()` returns, the lambda cal
 
 ---
 
+## Runtime Module Installation
+
+Modules can be installed at runtime from ZIP packages without restarting Animura.
+
+```
+User clicks "Add Module" in the React frontend
+  → NativeBridge.InstallModule()                    [COM call → Qt main thread]
+  → QFileDialog opens, filtered to *.zip
+  → User selects a ZIP file
+
+WallpaperController::installModuleFromPath(zipPath):
+
+  1. ZipExtractor::HasEntry(zip, "module.json")       [verify at ZIP root]
+  2. ZipExtractor::ReadFile(zip, "module.json")       [read directly into memory]
+  3. Parse JSON, validate "id" field
+  4. ModuleCatalog::hasModuleId(id)                   [duplicate check]
+  5. ZipExtractor::ExtractAll(zip, modules/<id>/)      [synchronous extraction]
+  6. Read extracted module.json, validate all fields
+  7. Verify referenced files (DLL, schema, settings, preview) exist
+  8. ModuleCatalog::addModule(info)                   [update catalog]
+  9. emit modulesChanged()                            [→ PostWebMessageAsJson → React]
+
+React updates:
+  → onBackendMessage({type: "modulesChanged"})
+  → getModulesList() → setModules(list)
+  → ModuleGrid re-renders with the new module visible
+```
+
+### Key Properties
+- **No restart required** — the catalog is updated in-place and the frontend refreshes immediately.
+- **Synchronous extraction** — uses minizip-ng; no Shell COM, no polling, no `Sleep()`.
+- **In-memory validation** — `module.json` is read directly from the ZIP archive before any files touch disk.
+- **Path-traversal protection** — entries containing `..` or absolute paths are rejected.
+- **Clean failure** — partially extracted directories are removed on error.
+
+---
+
 ## Application Shutdown
 
 ```

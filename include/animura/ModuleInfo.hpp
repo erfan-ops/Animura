@@ -24,6 +24,9 @@ struct ModuleInfo {
      */
     std::filesystem::path basePath;
 
+    /** Display id from `module.json` (e.g., "star-simulator"). */
+    std::string id;
+
     /** Display name from `module.json` (e.g., "Star Simulator"). */
     std::string name;
 
