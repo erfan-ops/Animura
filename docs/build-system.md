@@ -215,15 +215,16 @@ cmake --build build --config Release
 
 ## Dependency Summary
 
-| Dependency | Host | Module | Source |
-|---|---|---|---|
-| Qt 6.8 (Core/Gui/Network/Widgets) | ✓ | ✗ | System install (`C:/Qt/6.8.2/msvc2022_64`) |
-| WebView2 SDK | ✓ | ✗ | vcpkg (`unofficial-webview2`) |
-| wallpaper_host | ✓ (static lib) | ✗ | `lib/` directory |
-| React / TypeScript / Vite | ✓ (frontend) | ✗ | npm (`frontend/package.json`) |
-| OpenGL | ✗ | Varies | Windows SDK (for modules that use it) |
-| GLFW 3 | ✗ | Varies | vcpkg (for modules that use it) |
-| nlohmann/json | ✓ | ✓ | Bundled headers (`include/nlohmann/json.hpp`) |
+The host application has the following dependencies. Modules are independent and may use completely different dependencies — different graphics APIs, different libraries, or none at all. This table documents only what the host itself requires.
+
+| Dependency | Source |
+| --- | --- |
+| Qt 6.8 (Core/Gui/Network/Widgets) | System install (`C:/Qt/6.8.2/msvc2022_64`) |
+| WebView2 SDK | vcpkg (`unofficial-webview2`) |
+| wallpaper_host (static lib) | `lib/` directory |
+| React / TypeScript / Vite | npm (`frontend/package.json`) |
+| nlohmann/json | Bundled headers (`include/nlohmann/json.hpp`) |
+| Ole32 | Windows SDK |
 
 ---
 
