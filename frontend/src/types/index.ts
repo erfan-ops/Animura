@@ -11,6 +11,10 @@
 export interface ModuleInfo {
   /** Display name from module.json (e.g., "Star Simulator"). */
   name: string;
+
+  /** Description from module.json (e.g., "Renders dots that connect to the mouse cursor with distance-based lines"). */
+  description: string;
+
   /** Semantic version string from module.json (e.g., "1.0.0"). */
   version: string;
   /**

@@ -42,8 +42,13 @@ endif()
 # ── WebView2 SDK ──
 find_package(unofficial-webview2 CONFIG REQUIRED)
 
-# ── minizip-ng ──
-find_package(minizip-ng CONFIG REQUIRED)
+# ── minizip-ng (static CRT triplet required for /MT compatibility) ──
+# Resolve zstd first so minizip-ng links libzstd_static, not libzstd_shared.
+# Use NO_DEFAULT_PATH because CMAKE_PREFIX_PATH ordering alone doesn't
+# guarantee the static triplet wins over the dynamic one during find_package.
+set(_minizip_static "E:/coding/C/vcpkg/vcpkg/installed/x64-windows-static")
+find_package(zstd CONFIG REQUIRED PATHS "${_minizip_static}" NO_DEFAULT_PATH)
+find_package(minizip-ng CONFIG REQUIRED PATHS "${_minizip_static}" NO_DEFAULT_PATH)
 
 # ── wallpaper_host static library ──
 set(ANIMURA_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH

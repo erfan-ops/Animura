@@ -15,10 +15,13 @@
  * - Card scales to 1.04× with a cubic-bezier transition.
  * - Surface gradient lightens, border turns pink (`rgba(224,64,144,0.4)`).
  * - Pink glow shadow appears around the card.
+ * - A glassmorphism tooltip fades in above/below the card after a short
+ *   hover delay, showing the module name, version, and description.
  */
 
 import React from 'react';
 import type { ModuleInfo } from '../types';
+import { Tooltip } from './Tooltip';
 
 interface ModuleCardProps {
   module: ModuleInfo;
@@ -27,21 +30,52 @@ interface ModuleCardProps {
 
 export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
   const [hovered, setHovered] = React.useState(false);
+  const [tooltipVisible, setTooltipVisible] = React.useState(false);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const showTimerRef = React.useRef<number>(0);
+  const hideTimerRef = React.useRef<number>(0);
+
+  /** Show tooltip after a brief hover delay (avoids flicker on fast passes). */
+  const handleMouseEnter = React.useCallback(() => {
+    setHovered(true);
+    clearTimeout(hideTimerRef.current);
+    showTimerRef.current = window.setTimeout(
+      () => setTooltipVisible(true),
+      450,
+    );
+  }, []);
+
+  /** Hide tooltip immediately; card hover state resets. */
+  const handleMouseLeave = React.useCallback(() => {
+    setHovered(false);
+    clearTimeout(showTimerRef.current);
+    setTooltipVisible(false);
+  }, []);
+
+  /* Clean up timers on unmount. */
+  React.useEffect(() => {
+    return () => {
+      clearTimeout(showTimerRef.current);
+      clearTimeout(hideTimerRef.current);
+    };
+  }, []);
 
   return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 260,
-        height: 220,
-        position: 'relative',
-        cursor: 'pointer',
-        transform: hovered ? 'scale(1.04)' : 'scale(1)',
-        transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
-    >
+    <>
+      <div
+        ref={cardRef}
+        onClick={onClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          width: 260,
+          height: 220,
+          position: 'relative',
+          cursor: 'pointer',
+          transform: hovered ? 'scale(1.04)' : 'scale(1)',
+          transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
       {/* Shadow layer (neumorphic depth) */}
       <div
         style={{
@@ -134,5 +168,60 @@ export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
         </div>
       </div>
     </div>
+
+    {/* Glassmorphism tooltip — module name, version, description */}
+    <Tooltip targetRef={cardRef} visible={tooltipVisible}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}
+      >
+        {/* Module name + version badge */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              lineHeight: 1.3,
+            }}
+          >
+            {module.name}
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 400,
+              color: 'var(--text-secondary)',
+              opacity: 0.7,
+            }}
+          >
+            v{module.version}
+          </span>
+        </div>
+
+        {/* Description */}
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 400,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+            opacity: 0.85,
+          }}
+        >
+          {module.description}
+        </span>
+      </div>
+    </Tooltip>
+  </>
   );
 };

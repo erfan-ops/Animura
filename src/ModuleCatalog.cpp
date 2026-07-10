@@ -69,6 +69,7 @@ void ModuleCatalog::scanModules(const std::filesystem::path& root) {
             moduleDir.path(),
             metaJson["id"],
             metaJson["name"],
+            metaJson.value("description", "N/A"),
             metaJson["version"],
             metaJson["entry"],
             metaJson["schema"],

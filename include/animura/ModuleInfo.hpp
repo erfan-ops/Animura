@@ -30,6 +30,9 @@ struct ModuleInfo {
     /** Display name from `module.json` (e.g., "Star Simulator"). */
     std::string name;
 
+    /** Description from `module.json` (e.g., "Renders dots that connect to the mouse cursor with distance-based lines"). */
+    std::string description;
+
     /** Semantic version string from `module.json` (e.g., "1.0.0"). */
     std::string version;
 

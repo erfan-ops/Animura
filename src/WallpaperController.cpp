@@ -63,6 +63,7 @@ QVariantList WallpaperController::getModulesList() const {
         const auto& m = mods[i];
         QVariantMap item;
         item["name"] = QString::fromStdString(m.name);
+        item["description"] = QString::fromStdString(m.description);
         item["version"] = QString::fromStdString(m.version);
         item["previewPath"] = m.previewPathQt();
         item["id"] = i;
