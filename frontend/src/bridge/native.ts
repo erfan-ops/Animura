@@ -166,6 +166,54 @@ export async function installModule(): Promise<string> {
 }
 
 /**
+ * Detaches the currently running wallpaper module from the desktop WorkerW
+ * and repositions it as a standalone borderless window at the top-left of
+ * the virtual screen.
+ *
+ * The module continues its render loop — only the window parent changes.
+ * No-op if no module is running or the window is already detached.
+ *
+ * The C++ side emits `attachedChanged` after completing, which the frontend
+ * listens for to update the button label.
+ */
+export async function detachWallpaper(): Promise<void> {
+  const bridge = getBridge();
+  if (!bridge) return;
+  await bridge.DetachWallpaper();
+}
+
+/**
+ * Attaches the currently detached module window back to the desktop WorkerW
+ * layer so it renders behind desktop icons.
+ *
+ * No-op if no module is running or the window is already attached.
+ *
+ * The C++ side emits `attachedChanged` after completing, which the frontend
+ * listens for to update the button label.
+ */
+export async function attachWallpaper(): Promise<void> {
+  const bridge = getBridge();
+  if (!bridge) return;
+  await bridge.AttachWallpaper();
+}
+
+/**
+ * Queries whether the running module's window is currently attached to the
+ * desktop WorkerW.
+ *
+ * The COM bridge returns a BSTR (string) — we parse it with Number().
+ * Returns false if no module is running or the bridge is unavailable.
+ *
+ * @returns true if the module is running and attached to the desktop.
+ */
+export async function getIsAttached(): Promise<boolean> {
+  const bridge = getBridge();
+  if (!bridge) return false;
+  const raw = await bridge.GetIsAttached();
+  return Number(raw) === 1;
+}
+
+/**
  * Subscribes to C++ → JS web messages.
  *
  * The C++ side calls `PostWebMessageAsJson` with messages like:
@@ -180,7 +228,7 @@ export async function installModule(): Promise<string> {
  * @returns A cleanup function that unsubscribes the handler.
  */
 export function onBackendMessage(
-  handler: (msg: { type: string; moduleId: number }) => void
+  handler: (msg: { type: string; moduleId?: number; attached?: boolean }) => void
 ): () => void {
   const listener = (e: MessageEvent<string>) => {
     try {

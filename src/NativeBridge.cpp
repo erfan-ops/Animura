@@ -50,14 +50,17 @@
 
 // ── DISPID constants (method IDs for Invoke) ──
 enum BridgeDispId {
-    DISPID_GET_MODULES_LIST     = 1,
+    DISPID_GET_MODULES_LIST      = 1,
     DISPID_GET_RUNNING_MODULE_ID = 2,
-    DISPID_START_WALLPAPER      = 3,
-    DISPID_STOP_WALLPAPER       = 4,
-    DISPID_LOAD_SETTINGS_UI     = 5,
-    DISPID_APPLY_SETTINGS       = 6,
+    DISPID_START_WALLPAPER       = 3,
+    DISPID_STOP_WALLPAPER        = 4,
+    DISPID_LOAD_SETTINGS_UI      = 5,
+    DISPID_APPLY_SETTINGS        = 6,
     DISPID_PICK_FILE             = 7,
     DISPID_INSTALL_MODULE        = 8,
+    DISPID_DETACH_WALLPAPER      = 9,
+    DISPID_ATTACH_WALLPAPER      = 10,
+    DISPID_GET_IS_ATTACHED       = 11,
 };
 
 // ── Name → DISPID map ──
@@ -70,6 +73,9 @@ static const std::pair<const wchar_t*, DISPID> kMethodMap[] = {
     { L"ApplySettings",      DISPID_APPLY_SETTINGS },
     { L"PickFile",           DISPID_PICK_FILE },
     { L"InstallModule",      DISPID_INSTALL_MODULE },
+    { L"DetachWallpaper",    DISPID_DETACH_WALLPAPER },
+    { L"AttachWallpaper",    DISPID_ATTACH_WALLPAPER },
+    { L"GetIsAttached",      DISPID_GET_IS_ATTACHED },
 };
 
 // ── Helper: convert QJsonObject to std::string ──
@@ -264,6 +270,19 @@ HRESULT NativeBridge::Invoke(
                 }
                 break;
             }
+
+            case DISPID_DETACH_WALLPAPER:
+                m_controller->detachWallpaper();
+                break;
+
+            case DISPID_ATTACH_WALLPAPER:
+                m_controller->attachWallpaper();
+                break;
+
+            case DISPID_GET_IS_ATTACHED:
+                // Returns "1" if attached, "0" otherwise — JS must parse with Number().
+                result = m_controller->getIsAttached() ? "1" : "0";
+                break;
 
             default:
                 hr = DISP_E_MEMBERNOTFOUND;

@@ -24,7 +24,7 @@ import { Header } from './components/Header';
 import { ModuleGrid } from './components/ModuleGrid';
 import { SettingsPanel } from './components/SettingsPanel';
 import { NotificationBanner } from './components/Notification';
-import { useModules, useRunningModuleId, useSettings, useStartStop } from './hooks/useBackend';
+import { useModules, useRunningModuleId, useSettings, useStartStop, useAttachedState } from './hooks/useBackend';
 import * as bridge from './bridge/native';
 import { useNotifications } from './hooks/useNotifications';
 import type { ModuleInfo } from './types';
@@ -32,6 +32,7 @@ import type { ModuleInfo } from './types';
 const App: React.FC = () => {
   const { modules, loading, refresh: refreshModules } = useModules();
   const { runningModuleId, refresh } = useRunningModuleId();
+  const { isAttached, refresh: refreshAttached } = useAttachedState();
   const { notifications, show, dismiss } = useNotifications();
 
   const [selectedModule, setSelectedModule] = React.useState<ModuleInfo | null>(null);
@@ -64,7 +65,11 @@ const App: React.FC = () => {
   /** Toggles the wallpaper module start/stop. */
   const handleToggleStartStop = React.useCallback(async () => {
     await toggle();
-  }, [toggle]);
+    // After starting, refresh the attachment state so the
+    // Attach/Detach button updates immediately rather than
+    // waiting for the async WebView2 message.
+    await refreshAttached();
+  }, [toggle, refreshAttached]);
 
   /** Opens the module installer (native file dialog → ZIP validation → catalog refresh). */
   const handleInstallModule = React.useCallback(async () => {
@@ -87,7 +92,23 @@ const App: React.FC = () => {
   const handleStop = React.useCallback(async () => {
     await bridge.stopWallpaper();
     await refresh();
-  }, [refresh]);
+    // After stopping, refresh the attachment state. The C++ side
+    // resets m_attached to false but does not emit attachedChanged,
+    // so the frontend needs an explicit poll.
+    await refreshAttached();
+  }, [refresh, refreshAttached]);
+
+  /** Detaches the running wallpaper from the desktop. */
+  const handleDetach = React.useCallback(async () => {
+    await bridge.detachWallpaper();
+    await refreshAttached();
+  }, [refreshAttached]);
+
+  /** Attaches the detached wallpaper back to the desktop. */
+  const handleAttach = React.useCallback(async () => {
+    await bridge.attachWallpaper();
+    await refreshAttached();
+  }, [refreshAttached]);
 
   const handleClosePanel = React.useCallback(() => {
     setPanelOpen(false);
@@ -105,7 +126,13 @@ const App: React.FC = () => {
         position: 'relative',
       }}
     >
-      <Header runningModuleId={runningModuleId} onStop={handleStop} />
+      <Header
+        runningModuleId={runningModuleId}
+        isAttached={isAttached}
+        onStop={handleStop}
+        onDetach={handleDetach}
+        onAttach={handleAttach}
+      />
 
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <ModuleGrid

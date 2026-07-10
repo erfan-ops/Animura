@@ -145,6 +145,11 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
     }
 
     m_running = true;
+    // A wallpaper always starts attached to the desktop; the worker thread
+    // will correct this if AttachWindowToDesktop fails.  Setting it early
+    // on the main thread ensures that the frontend sees the correct value
+    // when it polls getIsAttached() after startWallpaper() returns.
+    m_attached = true;
     emit runningModuleChanged();
 
     /**
@@ -180,7 +185,9 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
 
             // Prepare Window — show it and attach to the desktop WorkerW layer.
             SetWindowLongPtrW(m_module->hwnd(), GWL_STYLE, WS_VISIBLE);
-            wallpaper::desktop::AttachWindowToDesktop(m_module->hwnd());
+            bool attachToDesktopReturnCode = wallpaper::desktop::AttachWindowToDesktop(m_module->hwnd());
+            m_attached = attachToDesktopReturnCode == 0 ? true : false;
+            emit attachedChanged();
 
             // Blocking call: module runs until stop() is called from the main thread.
             m_module->run();
@@ -237,7 +244,9 @@ void WallpaperController::stopWallpaper() {
 
     // 3. Reset state
     m_running = false;
+    m_attached = false;
     emit runningModuleChanged();
+    emit attachedChanged();
 
     // 4. Restore the Windows Desktop wallpaper
     restoreWallpaper();
@@ -290,6 +299,54 @@ void WallpaperController::applySettings(int moduleIndex, QJsonObject settings) {
 
     if (!file.commit())
         qWarning() << "Failed to save settings:" << file.errorString();
+}
+
+// ── Attach / Detach ──
+
+void WallpaperController::detachWallpaper() {
+    if (!m_running || !m_attached) return;
+    if (!m_module) return;
+
+    HWND hwnd = m_module->hwnd();
+    if (!IsWindow(hwnd)) return;
+
+    wallpaper::desktop::DetachWindowFromDesktop(hwnd);
+
+    // Position the detached window at the top-left of the virtual screen.
+    SetWindowPos(
+        hwnd,
+        HWND_BOTTOM,
+        GetSystemMetrics(SM_XVIRTUALSCREEN),
+        GetSystemMetrics(SM_YVIRTUALSCREEN),
+        0, 0,
+        SWP_NOSIZE | SWP_NOZORDER
+    );
+
+    restoreWallpaper();
+
+    m_attached = false;
+    emit attachedChanged();
+
+    qInfo() << "Wallpaper detached from desktop.";
+}
+
+void WallpaperController::attachWallpaper() {
+    if (!m_running || m_attached) return;
+    if (!m_module) return;
+
+    HWND hwnd = m_module->hwnd();
+    if (!IsWindow(hwnd)) return;
+
+    wallpaper::desktop::AttachWindowToDesktop(hwnd);
+
+    m_attached = true;
+    emit attachedChanged();
+
+    qInfo() << "Wallpaper attached to desktop.";
+}
+
+bool WallpaperController::getIsAttached() const {
+    return m_running && m_attached;
 }
 
 // ── Runtime Module Installation ──

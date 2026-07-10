@@ -185,6 +185,19 @@ int main(int argc, char* argv[]) {
             }
         );
 
+        // Bridge: forward attachment state changes to React.
+        // The frontend updates the Attach/Detach button label when this arrives.
+        QObject::connect(
+            &wallpaperController, &WallpaperController::attachedChanged,
+            &webViewHost, [&webViewHost, &wallpaperController]() {
+                QJsonObject msg;
+                msg["type"] = QStringLiteral("attachedChanged");
+                msg["attached"] = wallpaperController.getIsAttached();
+                QJsonDocument doc(msg);
+                webViewHost.postMessageToJs(doc.toJson(QJsonDocument::Compact));
+            }
+        );
+
         // ── Single-instance server ──
         // Listens for "show" messages from secondary launch attempts.
         QLocalServer singleInstanceServer;

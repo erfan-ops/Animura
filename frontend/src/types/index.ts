@@ -123,10 +123,21 @@ export interface NativeBridge {
    * Returns "OK" on success, or "ERROR:<message>" on failure.
    */
   InstallModule(): Promise<string>;
+  /** Detaches the running module window from the desktop WorkerW. No-op if not attached. */
+  DetachWallpaper(): Promise<void>;
+  /** Attaches the detached module window back to the desktop WorkerW. No-op if already attached. */
+  AttachWallpaper(): Promise<void>;
+  /**
+   * Returns whether the running module is attached to the desktop.
+   * Returns a string ("1" or "0") — parse with Number().
+   */
+  GetIsAttached(): Promise<number>;
 }
 
 /** Shape of a C++ → JS web message. */
 export interface BackendMessage {
-  type: 'runningModuleChanged' | 'modulesChanged';
+  type: 'runningModuleChanged' | 'modulesChanged' | 'attachedChanged';
   moduleId?: number;
+  /** Whether the running module's window is attached to the desktop. */
+  attached?: boolean;
 }

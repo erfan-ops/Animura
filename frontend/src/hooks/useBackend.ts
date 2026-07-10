@@ -73,7 +73,7 @@ export function useRunningModuleId() {
 
     const unsub = bridge.onBackendMessage((msg) => {
       if (msg.type === 'runningModuleChanged') {
-        setRunningModuleId(msg.moduleId);
+        setRunningModuleId(msg.moduleId ?? -1);
       }
     });
 
@@ -180,6 +180,44 @@ export function useSettings(moduleId: number) {
  * @param refresh         The refresh function from useRunningModuleId.
  * @returns `{ isRunning, toggle }`
  */
+/**
+ * Tracks whether the running module window is attached to the desktop
+ * WorkerW or detached as a standalone window.
+ *
+ * Uses two mechanisms:
+ * 1. **Initial poll** — calls `getIsAttached()` on mount.
+ * 2. **WebView2 messages** — listens for `attachedChanged` messages
+ *    pushed from C++ when the attachment state changes.
+ * 3. **Manual refresh** — `refresh()` forces an immediate poll. Called
+ *    after detach/attach actions because the WebView2 message is
+ *    asynchronous and may not arrive before the next React render cycle.
+ *
+ * @returns `{ isAttached, refresh }` — the current attachment state
+ *          (false when no module is running) and a function to force a poll.
+ */
+export function useAttachedState() {
+  const [isAttached, setIsAttached] = useState(true);
+
+  useEffect(() => {
+    bridge.getIsAttached().then(setIsAttached);
+
+    const unsub = bridge.onBackendMessage((msg) => {
+      if (msg.type === 'attachedChanged') {
+        setIsAttached(msg.attached ?? false);
+      }
+    });
+
+    return unsub;
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const attached = await bridge.getIsAttached();
+    setIsAttached(attached);
+  }, []);
+
+  return { isAttached, refresh };
+}
+
 export function useStartStop(
   moduleId: number,
   runningModuleId: number,

@@ -177,6 +177,41 @@ public:
      */
     Q_INVOKABLE QString installModuleFromPath(const QString& zipPath);
 
+    /**
+     * @brief Detaches the running module window from the desktop WorkerW
+     *        and repositions it as a standalone borderless window at the
+     *        top-left of the virtual screen.
+     *
+     * No-op if no module is running or the window is already detached.
+     * The module continues its render loop — only the window parent is
+     * changed.
+     *
+     * Emits `attachedChanged()` on success.
+     */
+    Q_INVOKABLE void detachWallpaper();
+
+    /**
+     * @brief Attaches the currently detached module window back to the
+     *        desktop WorkerW layer.
+     *
+     * No-op if no module is running or the window is already attached.
+     * The module continues its render loop — only the window parent is
+     * changed.
+     *
+     * Emits `attachedChanged()` on success.
+     */
+    Q_INVOKABLE void attachWallpaper();
+
+    /**
+     * @brief Returns whether the running module window is currently
+     *        attached to the desktop WorkerW.
+     *
+     * @return true if a module is running AND its window is attached
+     *         to the desktop; false otherwise (including when no module
+     *         is running).
+     */
+    Q_INVOKABLE bool getIsAttached() const;
+
 signals:
     /**
      * @brief Emitted when the running state changes (module started or
@@ -195,6 +230,16 @@ signals:
      * frontend so the module grid refreshes automatically.
      */
     void modulesChanged();
+
+    /**
+     * @brief Emitted when the desktop attachment state of the running
+     *        module changes.
+     *
+     * Fires after `detachWallpaper()` or `attachWallpaper()` completes.
+     * Connected in main.cpp to forward state changes to the React frontend
+     * so the Attach/Detach button label updates.
+     */
+    void attachedChanged();
 
 private:
     /** Discovered module list from scanning `./modules/`. */
@@ -233,6 +278,13 @@ private:
      * start so it can be restored on stop.
      */
     std::wstring m_originalWallpaper;
+
+    /**
+     * Whether the running module's window is currently attached to the
+     * desktop WorkerW layer (true) or detached as a standalone window
+     * (false). Meaningless when no module is running.
+     */
+    bool m_attached{ true };
 
     /**
      * @brief Restores the original Windows desktop wallpaper.
