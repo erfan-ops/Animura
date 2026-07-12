@@ -123,10 +123,10 @@ export const Header: React.FC<HeaderProps> = ({
               ...styles.glassBtn,
               background: glassHovered
                 ? 'rgba(255, 255, 255, 0.06)'
-                : 'rgba(255, 255, 255, 0.03)',
+                : 'rgba(255, 255, 255, 0.0)',
               borderColor: glassHovered
                 ? 'rgba(255, 255, 255, 0.1)'
-                : 'rgba(255, 255, 255, 0.05)',
+                : 'rgba(255, 255, 255, 0.0)',
               color: glassHovered
                 ? 'var(--text-primary)'
                 : 'var(--text-secondary)',
@@ -134,6 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
               boxShadow: glassHovered
                 ? '0 2px 8px rgba(0, 0, 0, 0.15)'
                 : 'none',
+              marginRight: 5
             }}
             onMouseEnter={() => setGlassHovered(true)}
             onMouseLeave={() => setGlassHovered(false)}
@@ -155,6 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
               borderColor: stopHovered
                 ? 'rgba(224,64,144,0.3)'
                 : 'transparent',
+              marginLeft: 5
             }}
             onMouseEnter={() => setStopHovered(true)}
             onMouseLeave={() => setStopHovered(false)}

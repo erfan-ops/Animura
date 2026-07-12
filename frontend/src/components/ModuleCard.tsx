@@ -116,7 +116,7 @@ export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
             borderRadius: 14,
             overflow: 'hidden',
             background: 'var(--bg-base)',
-            border: '1px solid rgba(0,0,0,0.3)',
+            border: `1px solid ${hovered ? 'rgba(224,64,144,0.4)' : 'rgba(0,0,0,0.3)'}`,
             position: 'relative',
           }}
         >
@@ -132,7 +132,7 @@ export const ModuleCard: React.FC<ModuleCardProps> = ({ module, onClick }) => {
               objectFit: 'contain',
               objectPosition: 'center center',
               transform: 'translate(-50%, -50%)',
-              opacity: 0.92,
+              opacity: hovered ? 1 : 0.9,
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';

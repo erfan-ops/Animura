@@ -24,3 +24,5 @@ CMakeUserPresets.json
 
 # documentation specificly designed for ai agents to understand the project
 ai-docs/
+.claude/
+CLAUDE.md
