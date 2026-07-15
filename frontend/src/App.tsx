@@ -24,7 +24,7 @@ import { Header } from './components/Header';
 import { ModuleGrid } from './components/ModuleGrid';
 import { SettingsPanel } from './components/SettingsPanel';
 import { NotificationBanner } from './components/Notification';
-import { useModules, useRunningModuleId, useSettings, useStartStop, useAttachedState } from './hooks/useBackend';
+import { useModules, useRunningModuleId, useSettings, useStartStop, useAttachedState, useRestoreLastWallpaper } from './hooks/useBackend';
 import * as bridge from './bridge/native';
 import { useNotifications } from './hooks/useNotifications';
 import type { ModuleInfo } from './types';
@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const { modules, loading, refresh: refreshModules } = useModules();
   const { runningModuleId, refresh } = useRunningModuleId();
   const { isAttached, refresh: refreshAttached } = useAttachedState();
+  const { restoreLast, setRestore } = useRestoreLastWallpaper();
   const { notifications, show, dismiss } = useNotifications();
 
   const [selectedModule, setSelectedModule] = React.useState<ModuleInfo | null>(null);
@@ -110,6 +111,11 @@ const App: React.FC = () => {
     await refreshAttached();
   }, [refreshAttached]);
 
+  /** Toggles the restore-last-wallpaper preference. */
+  const handleToggleRestore = React.useCallback(async () => {
+    await setRestore(!restoreLast);
+  }, [setRestore, restoreLast]);
+
   const handleClosePanel = React.useCallback(() => {
     setPanelOpen(false);
   }, []);
@@ -129,9 +135,11 @@ const App: React.FC = () => {
       <Header
         runningModuleId={runningModuleId}
         isAttached={isAttached}
+        restoreLast={restoreLast}
         onStop={handleStop}
         onDetach={handleDetach}
         onAttach={handleAttach}
+        onToggleRestore={handleToggleRestore}
       />
 
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>

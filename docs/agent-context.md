@@ -41,6 +41,8 @@ Module sources live separately at `E:/coding/C/live-wallpaper-modules/<name>/`.
 | `IWallpaperModule` | `include/animura/IWallpaperModule.hpp` | ABI interface: `run()`, `stop()`, `hwnd()`, virtual dtor |
 | `ZipExtractor` | `src/ZipExtractor.cpp` | ZIP read & extract via minizip-ng (module installation) |
 | `SettingsSchemaValidator` | `src/SettingsSchemaValidator.cpp` | Recursive JSON validation against schema |
+| `AppSettings` | `src/AppSettings.cpp` | Application-scoped persistent settings (singleton) |
+| `Paths` | `src/Paths.cpp` | Standardized filesystem paths via SHGetKnownFolderPath |
 
 ### Critical Architecture Rules
 
@@ -127,6 +129,8 @@ cmake --build build --config Release
 ```
 App Start → main.cpp → QApplication → WebView2Host (creates QWidget + WebView2)
   → WallpaperController (ctor scans /modules)
+  → Paths::init() → AppSettings::initialize() (loads %LOCALAPPDATA%/Animura/settings.json)
+  → (if restoreLastWallpaper) find module by lastUsedWallpaperID → startWallpaper(idx)
   → WebView2 navigates to frontend/dist/index.html (production) or localhost:5173 (dev)
   → React renders module grid via NativeBridge.GetModulesList()
 

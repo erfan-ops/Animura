@@ -21,12 +21,16 @@ interface HeaderProps {
   runningModuleId: number;
   /** Whether the running module window is attached to the desktop. */
   isAttached: boolean;
+  /** Whether auto-restore last wallpaper on startup is enabled. */
+  restoreLast: boolean;
   /** Called when the user clicks "Stop Wallpaper". */
   onStop: () => void;
   /** Called when the user clicks "Detach" (detach from desktop). */
   onDetach: () => void;
   /** Called when the user clicks "Attach" (attach back to desktop). */
   onAttach: () => void;
+  /** Called when the restore-last-wallpaper toggle is clicked. */
+  onToggleRestore: () => void;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -101,18 +105,72 @@ const styles: Record<string, React.CSSProperties> = {
 export const Header: React.FC<HeaderProps> = ({
   runningModuleId,
   isAttached,
+  restoreLast,
   onStop,
   onDetach,
   onAttach,
+  onToggleRestore,
 }) => {
   const [stopHovered, setStopHovered] = React.useState(false);
   const [glassHovered, setGlassHovered] = React.useState(false);
+  const [restoreHovered, setRestoreHovered] = React.useState(false);
+  const [restorePressed, setRestorePressed] = React.useState(false);
 
   const isRunning = runningModuleId >= 0;
 
   return (
     <div style={styles.header}>
       <span style={styles.title}>Animura</span>
+
+      {/* Restore-on-startup toggle */}
+      <button
+        onClick={onToggleRestore}
+        onMouseEnter={() => setRestoreHovered(true)}
+        onMouseLeave={() => { setRestoreHovered(false); setRestorePressed(false); }}
+        onMouseDown={() => setRestorePressed(true)}
+        onMouseUp={() => setRestorePressed(false)}
+        title={restoreLast
+          ? 'Auto-restore wallpaper on startup (enabled)'
+          : 'Auto-restore wallpaper on startup (disabled)'}
+        style={{
+          marginLeft: 18,
+          padding: '5px 14px',
+          fontSize: 12,
+          fontWeight: 500,
+          color: restoreLast
+            ? 'var(--accent)'
+            : restoreHovered
+              ? 'var(--text-secondary)'
+              : '#564a6e',
+          background: restoreLast
+            ? restorePressed
+              ? 'rgba(224,64,144,0.18)'
+              : restoreHovered
+                ? 'rgba(224,64,144,0.10)'
+                : 'rgba(224,64,144,0.06)'
+            : restorePressed
+              ? 'rgba(255,255,255,0.04)'
+              : restoreHovered
+                ? 'rgba(255,255,255,0.03)'
+                : 'rgba(255,255,255,0.015)',
+          border: restoreLast
+            ? restoreHovered
+              ? '1px solid rgba(224,64,144,0.3)'
+              : '1px solid rgba(224,64,144,0.15)'
+            : restoreHovered
+              ? '1px solid rgba(255,255,255,0.08)'
+              : '1px solid rgba(255,255,255,0.04)',
+          borderRadius: 'var(--radius-button)',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          transition: 'all 150ms',
+          transform: restorePressed ? 'scale(0.97)' : 'scale(1)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {restoreLast ? 'Restore on startup' : 'Restore on startup'}
+      </button>
+
       <div style={styles.spacer} />
 
       {isRunning && (

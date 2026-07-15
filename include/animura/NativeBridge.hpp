@@ -27,6 +27,12 @@ class QWidget;
  * | 5      | `LoadSettingsUI(idx)`| `loadSettingsUI(int)`      |
  * | 6      | `ApplySettings(i, j)`| `applySettings(int, json)` |
  * | 7      | `PickFile(filter?)`   | Opens native file dialog, returns path |
+ * | 8      | `InstallModule`      | `installModule()`                      |
+ * | 9      | `DetachWallpaper`    | `detachWallpaper()`                    |
+ * | 10     | `AttachWallpaper`    | `attachWallpaper()`                    |
+ * | 11     | `GetIsAttached`      | `getIsAttached()`                      |
+ * | 12     | `GetRestoreLastWallpaper` | `getRestoreLastWallpaper()`        |
+ * | 13     | `SetRestoreLastWallpaper` | `setRestoreLastWallpaper(bool)`    |
  *
  * ## Thread Safety
  * - WebView2 calls `Invoke()` on arbitrary threads.

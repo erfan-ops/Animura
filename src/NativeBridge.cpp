@@ -17,6 +17,11 @@
  * | 6      | `ApplySettings(i,j)` | `applySettings(int, json)` |
  * | 7      | `PickFile`           | `pickFile(filter?)`       |
  * | 8      | `InstallModule`      | `installModule()`         |
+ * | 9      | `DetachWallpaper`    | `detachWallpaper()`       |
+ * | 10     | `AttachWallpaper`    | `attachWallpaper()`       |
+ * | 11     | `GetIsAttached`      | `getIsAttached()`         |
+ * | 12     | `GetRestoreLastWallpaper` | `getRestoreLastWallpaper()` |
+ * | 13     | `SetRestoreLastWallpaper` | `setRestoreLastWallpaper(bool)` |
  *
  * ## Thread Safety
  * WebView2 calls `Invoke()` on arbitrary COM threads. All method
@@ -61,6 +66,8 @@ enum BridgeDispId {
     DISPID_DETACH_WALLPAPER      = 9,
     DISPID_ATTACH_WALLPAPER      = 10,
     DISPID_GET_IS_ATTACHED       = 11,
+    DISPID_GET_RESTORE_LAST      = 12,
+    DISPID_SET_RESTORE_LAST      = 13,
 };
 
 // ── Name → DISPID map ──
@@ -76,6 +83,8 @@ static const std::pair<const wchar_t*, DISPID> kMethodMap[] = {
     { L"DetachWallpaper",    DISPID_DETACH_WALLPAPER },
     { L"AttachWallpaper",    DISPID_ATTACH_WALLPAPER },
     { L"GetIsAttached",      DISPID_GET_IS_ATTACHED },
+    { L"GetRestoreLastWallpaper", DISPID_GET_RESTORE_LAST },
+    { L"SetRestoreLastWallpaper", DISPID_SET_RESTORE_LAST },
 };
 
 // ── Helper: convert QJsonObject to std::string ──
@@ -283,6 +292,23 @@ HRESULT NativeBridge::Invoke(
                 // Returns "1" if attached, "0" otherwise — JS must parse with Number().
                 result = m_controller->getIsAttached() ? "1" : "0";
                 break;
+
+            case DISPID_GET_RESTORE_LAST:
+                // Returns "1" if restore-on-startup is enabled, "0" otherwise.
+                result = m_controller->getRestoreLastWallpaper() ? "1" : "0";
+                break;
+
+            case DISPID_SET_RESTORE_LAST: {
+                // Extract the boolean value from the first argument.
+                int enable = 0;
+                if (pDispParams->cArgs >= 1) {
+                    VariantChangeType(&pDispParams->rgvarg[0],
+                        &pDispParams->rgvarg[0], 0, VT_I4);
+                    enable = pDispParams->rgvarg[0].intVal;
+                }
+                m_controller->setRestoreLastWallpaper(enable != 0);
+                break;
+            }
 
             default:
                 hr = DISP_E_MEMBERNOTFOUND;

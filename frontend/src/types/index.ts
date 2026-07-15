@@ -132,6 +132,16 @@ export interface NativeBridge {
    * Returns a string ("1" or "0") — parse with Number().
    */
   GetIsAttached(): Promise<number>;
+  /**
+   * Returns whether the application should restore the last wallpaper
+   * on startup. Returns a string ("1" or "0") — parse with Number().
+   */
+  GetRestoreLastWallpaper(): Promise<number>;
+  /**
+   * Enables or disables automatic wallpaper restore on startup.
+   * @param enable Pass 1 to enable, 0 to disable.
+   */
+  SetRestoreLastWallpaper(enable: number): Promise<void>;
 }
 
 /** Shape of a C++ → JS web message. */

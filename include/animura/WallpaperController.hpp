@@ -212,6 +212,37 @@ public:
      */
     Q_INVOKABLE bool getIsAttached() const;
 
+    /**
+     * @brief Returns whether the application should restore the last
+     *        running wallpaper on startup.
+     *
+     * Delegates to AppSettings. Exposed to the frontend so the user can
+     * read and toggle the preference through the UI.
+     *
+     * @return true if auto-restore is enabled.
+     */
+    Q_INVOKABLE bool getRestoreLastWallpaper() const;
+
+    /**
+     * @brief Enables or disables automatic wallpaper restore on startup.
+     *
+     * Delegates to AppSettings, which persists the change immediately.
+     *
+     * @param enable true to enable auto-restore, false to disable.
+     */
+    Q_INVOKABLE void setRestoreLastWallpaper(bool enable);
+
+    /**
+     * @brief Looks up a module's catalog index by its module ID string.
+     *
+     * Used at startup to resolve a persisted module ID (e.g.,
+     * "delaunay-flow") back to the index that startWallpaper() expects.
+     *
+     * @param id The module ID from module.json.
+     * @return The zero-based catalog index, or -1 if not found.
+     */
+    int findModuleIndexById(const std::string& id) const;
+
 signals:
     /**
      * @brief Emitted when the running state changes (module started or

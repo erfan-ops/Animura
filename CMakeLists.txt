@@ -57,9 +57,11 @@ set(ANIMURA_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH
 # ── Source files ──
 set(ANIMURA_SOURCES
     src/main.cpp
+    src/AppSettings.cpp
     src/JsonUtils.cpp
     src/ModuleCatalog.cpp
     src/ModuleLibrary.cpp
+    src/Paths.cpp
     src/SettingsSchemaValidator.cpp
     src/WallpaperController.cpp
     src/NativeBridge.cpp
@@ -151,16 +153,6 @@ add_custom_command(TARGET Animura POST_BUILD
     COMMENT "Copying wallpaper modules to build output"
 )
 
-# ── Post-build: copy React frontend dist to build output ──
-if(EXISTS "${CMAKE_SOURCE_DIR}/frontend/dist")
-    add_custom_command(TARGET Animura POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/frontend/dist"
-            "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>/frontend/dist"
-        COMMENT "Copying React frontend to build output"
-    )
-endif()
-
 # ── Convenience target: build the React frontend ──
 find_program(NPM_EXECUTABLE npm)
 
@@ -173,4 +165,14 @@ if(NPM_EXECUTABLE AND EXISTS "${CMAKE_SOURCE_DIR}/frontend/package.json")
         BYPRODUCTS "${CMAKE_SOURCE_DIR}/frontend/dist"
     )
     message(STATUS "Frontend build target 'frontend' registered (cmake --build . --target frontend)")
+endif()
+
+# ── Post-build: copy React frontend dist to build output ──
+if(EXISTS "${CMAKE_SOURCE_DIR}/frontend/dist")
+    add_custom_command(TARGET Animura POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/frontend/dist"
+            "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>/frontend/dist"
+        COMMENT "Copying React frontend to build output"
+    )
 endif()

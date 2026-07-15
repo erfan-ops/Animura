@@ -43,6 +43,8 @@
 
 #include "WallpaperController.hpp"
 #include "WebView2Host.hpp"
+#include "Paths.hpp"
+#include "AppSettings.hpp"
 
 namespace {
 
@@ -155,6 +157,10 @@ int main(int argc, char* argv[]) {
         // ── Core components ──
         WallpaperController wallpaperController;
 
+        // Initialize application paths and persistent settings.
+        Paths::init();
+        AppSettings::instance().initialize();
+
         // Create WebView2 host window (replaces QQmlApplicationEngine)
         WebView2Host webViewHost(&wallpaperController);
         QWidget* mainWindow = webViewHost.widget();
@@ -197,6 +203,21 @@ int main(int argc, char* argv[]) {
                 webViewHost.postMessageToJs(doc.toJson(QJsonDocument::Compact));
             }
         );
+
+        // ── Startup wallpaper restore ──
+        // If the user has enabled auto-restore, attempt to start the
+        // wallpaper that was running when the application last exited.
+        if (AppSettings::instance().restoreLastWallpaper()) {
+            const std::string lastId = AppSettings::instance().lastUsedWallpaperID();
+            int idx = wallpaperController.findModuleIndexById(lastId);
+            if (idx >= 0) {
+                wallpaperController.startWallpaper(idx);
+            } else {
+                // The saved wallpaper ID no longer exists — disable
+                // auto-restore so we don't keep failing on every launch.
+                AppSettings::instance().setRestoreLastWallpaper(false);
+            }
+        }
 
         // ── Single-instance server ──
         // Listens for "show" messages from secondary launch attempts.

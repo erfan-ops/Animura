@@ -218,6 +218,29 @@ export function useAttachedState() {
   return { isAttached, refresh };
 }
 
+/**
+ * Reads and controls the "restore last wallpaper on startup" preference.
+ *
+ * The value is loaded once on mount from the C++ backend (AppSettings).
+ * `setRestore` writes through to the backend, which persists immediately.
+ *
+ * @returns `{ restoreLast, setRestore }` — the current preference and a setter.
+ */
+export function useRestoreLastWallpaper() {
+  const [restoreLast, setRestoreLast] = useState(false);
+
+  useEffect(() => {
+    bridge.getRestoreLastWallpaper().then(setRestoreLast);
+  }, []);
+
+  const setRestore = useCallback(async (value: boolean) => {
+    await bridge.setRestoreLastWallpaper(value);
+    setRestoreLast(value);
+  }, []);
+
+  return { restoreLast, setRestore };
+}
+
 export function useStartStop(
   moduleId: number,
   runningModuleId: number,

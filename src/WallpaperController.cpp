@@ -21,6 +21,7 @@
  */
 
 #include "WallpaperController.hpp"
+#include "AppSettings.hpp"
 #include "JsonUtils.hpp"
 #include "SettingsSchemaValidator.hpp"
 #include "ZipExtractor.hpp"
@@ -217,6 +218,11 @@ void WallpaperController::startWallpaper(int moduleIndex) {
 
     if (m_running) stopWallpaper();
     startWorker(info);
+
+    // Persist this module as the most recently used wallpaper.
+    // The app uses this to auto-restore on next launch if the user
+    // has enabled that preference.
+    AppSettings::instance().setLastUsedWallpaperID(info.id);
 }
 
 void WallpaperController::stopWallpaper() {
@@ -493,4 +499,24 @@ QString WallpaperController::installModuleFromPath(const QString& zipPath) {
 
     qInfo() << "Module installed:" << QString::fromStdString(moduleId);
     return {}; // Success — empty string.
+}
+
+// ── App Settings ──
+
+bool WallpaperController::getRestoreLastWallpaper() const {
+    return AppSettings::instance().restoreLastWallpaper();
+}
+
+void WallpaperController::setRestoreLastWallpaper(bool enable) {
+    AppSettings::instance().setRestoreLastWallpaper(enable);
+}
+
+int WallpaperController::findModuleIndexById(const std::string& id) const {
+    const auto& mods = m_catalog.modules();
+    for (int i = 0; i < static_cast<int>(mods.size()); ++i) {
+        if (mods[i].id == id) {
+            return i;
+        }
+    }
+    return -1;
 }

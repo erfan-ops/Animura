@@ -12,6 +12,8 @@ Unlike traditional wallpaper changers, Animura modules can animate, react to mou
 - **Live wallpaper modules** — dynamically loaded from DLLs, each running its own render loop
 - **Desktop integration** — attaches rendering windows directly behind desktop icons via `WorkerW`
 - **Dynamic settings system** — each module defines its own settings; the UI is generated automatically
+- **Persistent application settings** — preferences stored in `%LOCALAPPDATA%/Animura/settings.json`
+- **Automatic wallpaper restore** — optionally restores the last running wallpaper on startup
 - **System tray support** — minimize to tray, restore, or quit
 - **Single-instance** — second launch notifies the running instance
 

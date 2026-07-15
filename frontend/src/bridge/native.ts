@@ -214,6 +214,34 @@ export async function getIsAttached(): Promise<boolean> {
 }
 
 /**
+ * Returns whether the application should restore the last wallpaper on
+ * startup.
+ *
+ * The COM bridge returns a BSTR (string) — we parse it with Number().
+ *
+ * @returns true if auto-restore is enabled.
+ */
+export async function getRestoreLastWallpaper(): Promise<boolean> {
+  const bridge = getBridge();
+  if (!bridge) return false;
+  const raw = await bridge.GetRestoreLastWallpaper();
+  return Number(raw) === 1;
+}
+
+/**
+ * Enables or disables automatic wallpaper restore on startup.
+ *
+ * The change is persisted immediately by the C++ backend (AppSettings).
+ *
+ * @param enable true to enable auto-restore, false to disable.
+ */
+export async function setRestoreLastWallpaper(enable: boolean): Promise<void> {
+  const bridge = getBridge();
+  if (!bridge) return;
+  await bridge.SetRestoreLastWallpaper(enable ? 1 : 0);
+}
+
+/**
  * Subscribes to C++ → JS web messages.
  *
  * The C++ side calls `PostWebMessageAsJson` with messages like:
