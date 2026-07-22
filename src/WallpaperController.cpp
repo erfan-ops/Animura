@@ -25,6 +25,8 @@
 #include "JsonUtils.hpp"
 #include "SettingsSchemaValidator.hpp"
 #include "ZipExtractor.hpp"
+#include "animura/desktop_host_resolver.hpp"
+#include "animura/wallpaper_host.hpp"
 
 #include <filesystem>
 
@@ -34,8 +36,6 @@
 #include <QDebug>
 
 
-#define WALLPAPER_HOST_STATIC
-#include <wallpaper-host/desktop_utils.hpp>
 using json = nlohmann::json;
 
 // ── Constructor / Destructor ──
@@ -43,12 +43,12 @@ using json = nlohmann::json;
 WallpaperController::WallpaperController(QObject* parent)
     : QObject(parent), m_catalog("modules")
 {
-    wallpaper::desktop::initSetWallpaperMethod();
+    m_wallpaperBridge = std::make_unique<animura::desktop::SystemWallpaperBridge>();
 }
 
 WallpaperController::~WallpaperController() {
     stopWallpaper();
-    wallpaper::desktop::shutdownWallpaperMethod();
+    m_wallpaperBridge.reset();
 }
 
 // ── Public API (Q_INVOKABLE) ──
@@ -140,7 +140,7 @@ bool WallpaperController::ensureLibraryLoaded(const ModuleInfo& info, int module
 
 void WallpaperController::startWorker(const ModuleInfo& info) {
     // Save the original wallpaper path before the module takes over the desktop.
-    m_originalWallpaper = wallpaper::desktop::GetCurrentWallpaperPath();
+    m_originalWallpaper = m_wallpaperBridge->GetWallpaper();
     if (m_originalWallpaper.empty()) {
         qWarning() << "Warning: Could not retrieve current wallpaper path.";
     }
@@ -184,11 +184,33 @@ void WallpaperController::startWorker(const ModuleInfo& info) {
                 throw std::runtime_error("Module factory returned null.");
             }
 
-            // Prepare Window — show it and attach to the desktop WorkerW layer.
+            // Resolve the desktop host using the new robust architecture.
+            animura::desktop::DesktopHostResolver resolver;
+            auto hostInfo = resolver.Resolve();
+            if (!hostInfo.IsValid()) {
+                qCritical() << "Failed to resolve desktop wallpaper host.";
+                m_attached = false;
+                emit attachedChanged();
+                m_module.reset();
+                return;
+            }
+
+            // Store the host attachment object (accessed from main & worker threads).
+            m_wallpaperHost = std::make_unique<animura::desktop::WallpaperHost>(
+                std::move(hostInfo));
+
+            // Prepare Window — show it and attach to the desktop host.
             SetWindowLongPtrW(m_module->hwnd(), GWL_STYLE, WS_VISIBLE);
-            bool attachToDesktopReturnCode = wallpaper::desktop::AttachWindowToDesktop(m_module->hwnd());
-            m_attached = attachToDesktopReturnCode == 0 ? true : false;
+            bool ok = m_wallpaperHost->Attach(m_module->hwnd());
+            m_attached = ok;
             emit attachedChanged();
+
+            if (!ok) {
+                qCritical() << "Failed to attach wallpaper window to desktop host.";
+                m_wallpaperHost.reset();
+                m_module.reset();
+                return;
+            }
 
             // Blocking call: module runs until stop() is called from the main thread.
             m_module->run();
@@ -233,7 +255,9 @@ void WallpaperController::stopWallpaper() {
         // Try to hide it immediately if it's still alive
         if (IsWindow(m_module->hwnd())) {
             SetWindowLongPtrW(m_module->hwnd(), GWL_STYLE, ~WS_VISIBLE);
-            wallpaper::desktop::DetachWindowFromDesktop(m_module->hwnd());
+            if (m_wallpaperHost) {
+                m_wallpaperHost->Detach();
+            }
         }
         m_module->stop();
     }
@@ -251,6 +275,7 @@ void WallpaperController::stopWallpaper() {
     // 3. Reset state
     m_running = false;
     m_attached = false;
+    m_wallpaperHost.reset();
     emit runningModuleChanged();
     emit attachedChanged();
 
@@ -260,8 +285,8 @@ void WallpaperController::stopWallpaper() {
     qInfo() << "Wallpaper stopped and original restored.";
 }
 
-void WallpaperController::restoreWallpaper() const {
-    wallpaper::desktop::SetWallpaper(m_originalWallpaper);
+void WallpaperController::restoreWallpaper() {
+    m_wallpaperBridge->SetWallpaper(m_originalWallpaper);
 }
 
 // ── Settings I/O ──
@@ -316,7 +341,9 @@ void WallpaperController::detachWallpaper() {
     HWND hwnd = m_module->hwnd();
     if (!IsWindow(hwnd)) return;
 
-    wallpaper::desktop::DetachWindowFromDesktop(hwnd);
+    if (m_wallpaperHost) {
+        m_wallpaperHost->Detach();
+    }
 
     // Position the detached window at the top-left of the virtual screen.
     SetWindowPos(
@@ -343,7 +370,22 @@ void WallpaperController::attachWallpaper() {
     HWND hwnd = m_module->hwnd();
     if (!IsWindow(hwnd)) return;
 
-    wallpaper::desktop::AttachWindowToDesktop(hwnd);
+    // Re-resolve the desktop host in case Explorer restarted since detach.
+    animura::desktop::DesktopHostResolver resolver;
+    auto hostInfo = resolver.Resolve();
+    if (!hostInfo.IsValid()) {
+        qWarning() << "Failed to re-resolve desktop host for re-attachment.";
+        return;
+    }
+
+    m_wallpaperHost = std::make_unique<animura::desktop::WallpaperHost>(
+        std::move(hostInfo));
+
+    if (!m_wallpaperHost->Attach(hwnd)) {
+        qWarning() << "Failed to re-attach wallpaper window to desktop.";
+        m_wallpaperHost.reset();
+        return;
+    }
 
     m_attached = true;
     emit attachedChanged();

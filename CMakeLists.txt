@@ -53,8 +53,8 @@ find_package(zstd CONFIG REQUIRED PATHS "${_minizip_static}" NO_DEFAULT_PATH)
 find_package(minizip-ng CONFIG REQUIRED PATHS "${_minizip_static}" NO_DEFAULT_PATH)
 
 # ── wallpaper_host static library ──
-set(ANIMURA_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH
-    "Directory containing wallpaper_host static libraries")
+# set(ANIMURA_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH
+#     "Directory containing wallpaper_host static libraries")
 
 # ── Source files ──
 set(ANIMURA_SOURCES
@@ -69,6 +69,10 @@ set(ANIMURA_SOURCES
     src/NativeBridge.cpp
     src/WebView2Host.cpp
     src/ZipExtractor.cpp
+    src/desktop_host_resolver.cpp
+    src/wallpaper_host.cpp
+    src/win32_utils.cpp
+    src/desktop_wallpaper.cpp
 )
 
 # ── MOC headers (Qt meta-object compiler — Q_OBJECT classes) ──
@@ -106,8 +110,6 @@ target_link_libraries(Animura PRIVATE
     Qt6::Network
     Qt6::Widgets
     Ole32
-    $<$<CONFIG:Debug>:wallpaper_host_static_mtd>
-    $<$<NOT:$<CONFIG:Debug>>:wallpaper_host_static_mt>
     MINIZIP::minizip-ng
 )
 

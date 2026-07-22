@@ -10,6 +10,11 @@
 #include "ModuleCatalog.hpp"
 #include "ModuleLibrary.hpp"
 #include "IWallpaperModule.hpp"
+#include <desktop_wallpaper.hpp>
+
+namespace animura::desktop {
+    class WallpaperHost;
+}
 
 /**
  * @brief Central orchestrator for wallpaper module lifecycle.
@@ -317,13 +322,19 @@ private:
      */
     bool m_attached{ true };
 
+    /** RAII desktop host attachment. */
+    std::unique_ptr<animura::desktop::WallpaperHost> m_wallpaperHost;
+
+    /** RAII desktop wallpaper bridge. */
+    std::unique_ptr<animura::desktop::SystemWallpaperBridge> m_wallpaperBridge;
+
     /**
      * @brief Restores the original Windows desktop wallpaper.
      *
      * Called during `stopWallpaper()`. Uses the path saved in
      * `m_originalWallpaper`.
      */
-    void restoreWallpaper() const;
+    void restoreWallpaper();
 
     /**
      * @brief Validates that a module index is within bounds.
